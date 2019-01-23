@@ -1,10 +1,10 @@
 import psycopg2
 import psycopg2.extras
-from type_s import User, ChSetting
+from type_s import User, ChSetting, Post
 
 try:
     import local_config as config
-except:
+except ImportError:
     import config
 
 
@@ -57,12 +57,38 @@ class DB(object):
                 channels = cur.fetchall()
                 print(channels, type(channels))
 
-        return channels
+        return list(map(lambda x: x[0], channels))
 
     def get_ch_setting(self, ch_id):
         with self.conn:
-            with self.conn.cursor(cursor_factory = psycopg2.extras.DictCursor) as cur:
+            with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
             
-                cur.execute("""SELECT * FROM chsetting WHERE id = %s""",(user_id,))
-                channel = cur.fetchall()
+                cur.execute("""SELECT * FROM chsetting WHERE id = %s""",(ch_id,))
+                channel = cur.fetchone()
+        print(channel)
         return ChSetting(dict(channel))
+
+
+
+    def new_post(self, chennel_id,  msg_id):
+        with self.conn:
+            with self.conn.cursor() as cur:
+                cur.execute("""insert into posts (msg_id, channel_id) VALUES (%s, %s) RETURNING id;""",(msg_id, chennel_id,))
+                id = cur.fetchone()
+            
+        return id
+
+    def get_post(self, post_id):
+        with self.conn:
+            with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""select * from posts where id = %s;""",(post_id,))
+                post = cur.fetchone()
+                cur.execute("""select * from coments where post_id = %s;""",(post_id,))
+                comments = cur.fetchall()
+        return Post(post, comments)
+
+    def new_comment(self, post_id, user_creator_id, text):
+        with self.conn:
+            with self.conn.cursor() as cur:
+                cur.execute("""insert into coments (text_main, post_id, user_creator_id) values (%s, %s, %s);""",(text, post_id, user_creator_id,))
+            

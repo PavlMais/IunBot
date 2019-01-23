@@ -10,24 +10,18 @@ class PrivateHandler(object):
         msg = msg.message
         user = self.db.check_user(msg.chat.id)
         if user.mode_write == 'add_ch':
-            rules, ch_name = self.check_ch(msg.text)
+            result = self.check_ch(msg.chat.id, msg.text)
+          
+            
 
-            if rules['can_edit_messages'] == True:
-                self.db.add_channel(msg.chat.id, self.bot.get_chat(ch_name).id)
 
-
-            self.view.add_ch_final(msg, edit_msg = True, rules = rules)
+            self.view.add_ch_final(msg, edit_msg = True, result = result)
         else:
-            self.view.welkom(msg, edit_msg=False)
+            self.view.main_menu(msg, edit_msg=False)
 
-    def check_ch(self, ch_name):
+    def check_ch(self, user_id, ch_name):
         print(ch_name)
-        rules = {
-            'exists': False,
-            'admin': False,
-            'can_edit_messages': False,
-            'added': False
-        }
+
         if len(ch_name.split('t.me/')) > 1:
             ch_name = ch_name.split('t.me/')[1]
 
@@ -37,34 +31,32 @@ class PrivateHandler(object):
         try:
             admins = self.bot.get_chat_administrators(ch_name)
         except error.BadRequest as e:
-            print(e)
+            print('ERROR: ', e)
             e = str(e)
 
-            if e == 'Chat not found':
-                return rules
+            if not e == 'Chat not found':
+                return 'NotFound'
+            if not e == 'Supergroup members are unavailable':
+                return 'NoAdmin'
 
-            rules['exists'] = True
-
-            if e == 'Supergroup members are unavailable':
-                return rules
         print('ADMINS ===========================================')
         print(admins)
-        rules['admin'] = True
+       
 
         for admin in admins:
             if admin.user.id == 739272731:
                 print(admin)
-                
-                rules['can_edit_messages'] = admin.can_edit_messages
+                if admin.can_edit_messages == False:
+                    return 'CantEditMsg'
         
+        ch_id  = self.bot.get_chat(ch_name).id
 
-
+        if ch_id in self.db.get_all_ch(user_id):
+            return 'ChannelExists'
 
         
-        return (rules, ch_name)
-        
-        
-
+        self.db.add_channel(user_id, ch_id)
+        return 'Added'
         
 
     def command(self, bot, msg):
@@ -74,7 +66,7 @@ class PrivateHandler(object):
         msg_txt = msg.text.split()
 
         if len(msg_txt) == 2 and msg_txt[0] == '/start':
-            self.view.comments(msg)
+            self.view.comments(msg, post_id = msg_txt[1])
         elif msg.text == '/start':
             self.view.welkom(msg, edit_msg=False)
 

@@ -1,6 +1,6 @@
 from telegram import InlineKeyboardButton as Button
 from telegram import InlineKeyboardMarkup as Markup
-
+import time
 
 class View(object):
     def __init__(self, bot, db):
@@ -10,7 +10,6 @@ class View(object):
 
     def send_msg(func):
         def wraper(self, msg, edit_msg = True, *args, **kwargs):
-            print(edit_msg)
             print(args)
             print(kwargs)
 
@@ -27,20 +26,29 @@ class View(object):
                 try:
                     self.bot.edit_message_text(text, chat_id = msg.chat.id, message_id = msg.message_id, reply_markup = bts)
                 except Exception as e:
-                    print(e)
+                    print('Error send message: ', e)
                     self.bot.send_message(msg.chat.id, text, reply_markup = bts)
             else:
                 self.bot.send_message(msg.chat.id, text, reply_markup = bts)
-
-
-
-
         return wraper
 
+    @send_msg
+    def comments(self, post_id):
+        post = self.db.get_post(post_id)
 
-    def comments(is_admin):
-        pass
-     
+        if post in self.db.get_all_ch(self.user_id)# admin
+            pass
+
+
+
+            # Continue here  <=========
+
+
+
+        else: # no admin
+            pass
+
+
     @send_msg
     def welkom(self):
         return 'Welkom to bot', [[Button("GO", callback_data='open main_menu'),]]
@@ -54,15 +62,18 @@ class View(object):
         self.db.set_user_param(self.user_id, 'mode_write', 'off')
         
         channels = self.db.get_all_ch(self.user_id)
-        bts = [[Button(' Назад', callback_data='open main_menu'), 
-        Button(' Добавить', callback_data='open add_ch')]]
-        for ch in channels:
-            try:
-                ch_name = self.bot.get_chat(ch[0])
-            except:
-                ch_name = 'No admin'
-            bts.append([Button(ch_name, callback_data='open ch_sett' + str(ch[0])),])
+        bts = [[Button(' Назад', callback_data='open main_menu')]]
 
+        if channels:
+            bts[0].append(Button(' Добавить', callback_data='open add_ch'))
+            for ch in channels:
+                try:
+                    ch_name = self.bot.get_chat(ch).title
+                except:
+                    ch_name = 'No admin'
+                bts.append([Button(str(ch_name), callback_data='open ch_setting ' + str(ch)),])
+        else:
+            bts.append([Button(' Добавить', callback_data='open add_ch')])
         return 'List channel: ', bts
 
     @send_msg
@@ -71,20 +82,26 @@ class View(object):
         return 'Enter username your channel:', [[Button('Назад ', callback_data='open ch_list')]]
 
     @send_msg
-    def add_ch_final(self, rules):
-        self.db.set_user_param(self.user_id, 'mode_write', 'off')
-
+    def add_ch_final(self, result):
+        if result == 'Added':
+            self.db.set_user_param(self.user_id, 'mode_write', 'off')
+            time.sleep(2)
+            
         
-        print(rules)
+        print(result)
 
-        return str(rules), None
+        return result, None
 
         
     @send_msg
     def ch_setting(self, ch_id):
 
-        channel = self.db.get_ch_setting(ch_id)
+        channel = self.db.get_ch_setting(int(ch_id))
+        print(channel)
 
+        # status
+        
+        return 'Setting'
 
 
 
