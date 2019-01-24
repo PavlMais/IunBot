@@ -1,6 +1,6 @@
 import psycopg2
 import psycopg2.extras
-from type_s import User, ChSetting, Post
+from type_s import User, ChSetting, Post, Comments
 
 try:
     import local_config as config
@@ -107,4 +107,11 @@ class DB(object):
     def delete_comment(self, comment_id):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""delete from comennts where id = %s""",(comment_id,))
+                cur.execute("""delete from comments where id = %s""", (comment_id,))
+    
+    def get_comment(self, comment_id):
+         with self.conn:
+            with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""select * from comments where id = %s""", (comment_id,))
+                comment = cur.fetchone()
+        return Comments(comment)

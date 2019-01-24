@@ -46,11 +46,11 @@ class View(object):
         for com in post.comments:
             time.sleep(0.5)
             name_user = self.bot.get_chat(com.user_creator).first_name
-            bts = [[Button('Like ' + str(com.liked_count) ,callback_data="comment like " + str(com.id))]]
+            bts = [[Button('❤️' + str(com.liked_count) ,callback_data="comment like " + str(com.id))]]
 
-            if is_admin: bts[0].append(Button('Del', callback_data='comment delete ' + str(com.id)))
+            if is_admin: bts[0].append(Button('🗑', callback_data='open confirm_del ' + str(com.id)))
 
-            text = f'**{name_user}:**\n{com.text}'
+            text = f'**{name_user}:**❤️ {com.liked_count} **|** 🕑 {com.date_add}\n__{com.text}__'
             print(bts)
             self.bot.send_message(self.user_id, text, reply_markup = Markup(bts) )
 
@@ -59,6 +59,23 @@ class View(object):
             
 
         return False, None
+
+    @swnd_msg
+    def confirm_del(self, arg_id):
+        comment = self.db.get_comment(arg_id)
+
+        bts = [[Button('Yes', callback_data = "commit delete " + arg_id),
+                Button('No', callback_data  = "delete_this_msg" )]]#TODO: <<<<< EDIT IT
+
+        name_user = self.bot.get_chat(com.user_creator).first_name
+        return f'You realy delete:\n**{name_user}**\n__{comment.text}__', bts
+
+
+    @send_msg
+    def edit_comment(self, arg_id):
+        comment = self.db.get_comment(arg_id)
+        bts = [[Button('Cancel', callback_data = "delete_this_msg")]]
+        return 'ok send me new text for', btn
 
 
     @send_msg
@@ -107,7 +124,7 @@ class View(object):
 
         
     @send_msg
-    def ch_setting(self, ch_id):
+    def ch_setting(self, arg_id):
 
         channel = self.db.get_ch_setting(int(ch_id))
         print(channel)
@@ -115,6 +132,15 @@ class View(object):
         #TODO:
         
         return 'Setting'
+        
+
+    @send_msg
+    def del_end_msg(self):
+        self.bot.delete_message(chat_id) #TODO:  <======
+        return False, None
+
+
+        
 
 
 

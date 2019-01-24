@@ -14,6 +14,7 @@ class Comment(object):
     def __init__(self, comment):
         self.id          = comment['id']
         self.post_id     = comment['post_id']
+        self.channel_id  = comment['channel_id'] #TODO: Add to DB
         self.text        = comment['text_main']
         self.date_add    = comment['date_add']
         self.user_creator= comment['user_creator_id']
