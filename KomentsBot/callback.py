@@ -12,7 +12,6 @@ class CallbackHandler(object):
         }
 
     def main(self, bot, update):
-      
         print(update.callback_query.data)
         
         data = update.callback_query.data
@@ -25,3 +24,16 @@ class CallbackHandler(object):
                 self.methods[data[1]](msg, ch_id = data[2])
 
             self.methods[data[1]](msg)
+
+        elif data[0] == 'comment':
+            if data[1] == 'like':
+                self.db.like_comment(data[2])
+
+            elif data[1] == 'dislike':
+                self.db.dislike_comment(data[2])
+
+            elif data[1] == 'delete':
+                self.db.delete_comment(data[2])
+
+
+            #TODO: update comments list for user and post for chennel

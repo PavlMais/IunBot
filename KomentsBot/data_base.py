@@ -87,8 +87,24 @@ class DB(object):
                 comments = cur.fetchall()
         return Post(post, comments)
 
-    def new_comment(self, post_id, user_creator_id, text):
+    def new_comment(self, user_creator_id, post_id, text):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""insert into coments (text_main, post_id, user_creator_id) values (%s, %s, %s);""",(text, post_id, user_creator_id,))
-            
+                cur.execute("""insert into coments (text_main, post_id, user_creator_id) values (%s, %s, %s);""",
+                            (text, post_id, user_creator_id,))
+
+
+    def like_comment(self, comment_id):
+        with self.conn:
+            with self.conn.cursor() as cur:
+                cur.execute("""update coments set liked_count = liked_count + 1 where id = %s;""", (comment_id,))
+
+    def dislike_comment(self, comment_id):
+        with self.conn:
+            with self.conn.cursor() as cur:
+                cur.execute("""update coments set liked_count = liked_count - 1 where id = %s;""", (comment_id,))
+
+    def delete_comment(self, comment_id):
+        with self.conn:
+            with self.conn.cursor() as cur:
+                cur.execute("""delete from comennts where id = %s""",(comment_id,))

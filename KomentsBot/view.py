@@ -17,6 +17,8 @@ class View(object):
             self.user_id = msg.chat.id
             text, buttons = func(self, *args, **kwargs)
 
+            if text is False:
+                return
             if buttons is None:
                 bts = None
             else:
@@ -35,18 +37,28 @@ class View(object):
     @send_msg
     def comments(self, post_id):
         post = self.db.get_post(post_id)
-
-        if post in self.db.get_all_ch(self.user_id)# admin
-            pass
-
-
-
-            # Continue here  <=========
+        if post.channel_id in self.db.get_all_ch(self.user_id):
+            is_admin = True
+        else:
+            is_admin = False
 
 
+        for com in post.comments:
+            time.sleep(0.5)
+            name_user = self.bot.get_chat(com.user_creator).first_name
+            bts = [[Button('Like ' + str(com.liked_count) ,callback_data="comment like " + str(com.id))]]
 
-        else: # no admin
-            pass
+            if is_admin: bts[0].append(Button('Del', callback_data='comment delete ' + str(com.id)))
+
+            text = f'**{name_user}:**\n{com.text}'
+            print(bts)
+            self.bot.send_message(self.user_id, text, reply_markup = Markup(bts) )
+
+        self.bot.send_message(self.user_id, 'Write your comments: ')
+        self.db.set_user_param(self.user_id, 'mode_write', 'write_comment '+ str(post.id))
+            
+
+        return False, None
 
 
     @send_msg
@@ -86,9 +98,10 @@ class View(object):
         if result == 'Added':
             self.db.set_user_param(self.user_id, 'mode_write', 'off')
             time.sleep(2)
-            
         
         print(result)
+
+        #TODO:
 
         return result, None
 
@@ -99,7 +112,7 @@ class View(object):
         channel = self.db.get_ch_setting(int(ch_id))
         print(channel)
 
-        # status
+        #TODO:
         
         return 'Setting'
 

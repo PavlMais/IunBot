@@ -33,7 +33,6 @@ class Post(object):
         for comment in comments:
             self.comments.append(Comment(comment)) 
 
-        print(self.comments)
 
         def __repr__(self):
             return str(self.id)

@@ -19,9 +19,9 @@ dispatcher = updater.dispatcher
 
 db = DB()
 view = View(updater.bot, db )
-PH = PrivateHandler(view, db, updater.bot)
-CBH = CallbackHandler(view , db)
 post_editor = PostEditor(db)
+PH = PrivateHandler(view, db, updater.bot, post_editor)
+CBH = CallbackHandler(view , db)
 
 dispatcher.add_handler(MessageHandler(Filters.text, PH.main, channel_post_updates = False))
 dispatcher.add_handler(CommandHandler('start', PH.command))

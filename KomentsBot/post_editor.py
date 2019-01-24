@@ -32,6 +32,21 @@ class PostEditor(object):
 
         print(r)
 
-    def new_comment(self, user_id, post_id, text):
-        pass
+    def new_comment(self, bot, user_id, post_id, text):
+        self.db.new_comment(user_id, post_id, text)
+        post = self.db.get_post(post_id)
+        
 
+        standart_bts = [[Button('Написать коментарий',
+         url='t.me/KomentsBot?start=' + str(post.id)),]]
+
+        bot.edit_message_text(
+            text = '',         #       <<     TODO
+            message_id = post.msg_id,
+            chat_id = post.channel_id,
+            reply_markup = Markup(standart_bts),
+            parse_mode = 'markdown'
+        )
+        
+    def update_post(post_id):
+        pass

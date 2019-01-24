@@ -1,21 +1,24 @@
 from telegram import error
 class PrivateHandler(object):
 
-    def __init__(self, view, db, bot):
+    def __init__(self, view, db, bot, post_editor):
         self.view = view
         self.db   = db
         self.bot  = bot
+        self.post_editor = post_editor
 
     def main(self, bot, msg):
         msg = msg.message
         user = self.db.check_user(msg.chat.id)
         if user.mode_write == 'add_ch':
             result = self.check_ch(msg.chat.id, msg.text)
-          
-            
-
 
             self.view.add_ch_final(msg, edit_msg = True, result = result)
+            
+        elif user.mode_write.split()[0] == 'mode_write':
+
+            self.post_editor.new_comment(bot, msg.chat.id, user.mode_write.split()[1], msg.text)
+
         else:
             self.view.main_menu(msg, edit_msg=False)
 
