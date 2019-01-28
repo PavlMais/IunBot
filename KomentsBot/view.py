@@ -11,10 +11,11 @@ class View(object):
     def send_msg(func):
         def wraper(self, msg, edit_msg = True, *args, **kwargs):
             print(args)
-            print(kwargs)
+            print(func.__name__, 'KWARGS docor: ',kwargs)
 
             user = self.db.check_user(msg.chat.id)
             self.user_id = msg.chat.id
+
             text, buttons = func(self, *args, **kwargs)
 
             if text is False:
@@ -23,52 +24,108 @@ class View(object):
                 bts = None
             else:
                 bts = Markup(buttons)
-
+            print(bts)
             if edit_msg:
                 try:
-                    self.bot.edit_message_text(text, chat_id = msg.chat.id, message_id = msg.message_id, reply_markup = bts)
+                    self.bot.edit_message_text(text, chat_id = msg.chat.id, message_id = msg.message_id,
+                                               parse_mode = 'html', reply_markup = bts)
                 except Exception as e:
                     print('Error send message: ', e)
-                    self.bot.send_message(msg.chat.id, text, reply_markup = bts)
+                    self.bot.send_message(msg.chat.id, text, parse_mode = 'html', reply_markup = bts)
             else:
-                self.bot.send_message(msg.chat.id, text, reply_markup = bts)
+                self.bot.send_message(msg.chat.id, text, parse_mode = 'html', reply_markup = bts)
         return wraper
+
+    @send_msg
+    def ch_setting(self, arg_id):
+        channel = self.db.get_ch_setting(int(arg_id))
+
+        bts = [
+            [
+                Button('Назад', callback_data='open ch_list'),
+                Button('Статус', callback_data='l'),
+            ],
+            [
+                Button('Добивить коментариев к посту', callback_data='d')
+            ],
+            [
+                Button('Максимальная длина каментария', callback_data='d')
+            ],
+            [
+                Button('Сортировать коментарии', callback_data='d')
+            ],
+            
+            [
+                Button('Кто сожет писать комментарии', callback_data='d')
+            ],
+            [
+                Button('Настроить кнопки', callback_data='d')
+            ],
+            
+        ]
+        return 'Setting', bts
+
+
+    def build_comment(self, comnt, is_admin):
+        if comnt.user_creator == self.user_id:
+            is_liked  = '♥️'
+            call_data = 'None'
+        elif comnt.users_liked and self.user_id in comnt.users_liked:
+            is_liked  = '💖'
+            call_data = 'comment dislike ' + str(comnt.id)
+        else:
+            is_liked  = '❤️'
+            call_data = 'comment like ' + str(comnt.id)
+
+        bts = [Button(is_liked + str(comnt.liked_count), callback_data=call_data)]
+        
+        if comnt.user_creator == self.user_id:
+            bts.append(Button('🗑',   callback_data='open confirm_del '  + str(comnt.id)))
+            bts.append(Button('edit',callback_data='open edit_comment ' + str(comnt.id)))
+        elif is_admin:
+            bts.append(Button('🗑', callback_data='open confirm_del ' + str(comnt.id)))
+
+        text = f'<b>{comnt.get_user_name(self.bot)}</b>  🕑 {comnt.date_add}\n<i>{comnt.text}</i>'
+        return text, [bts]
+
+
+
+
 
     @send_msg
     def comments(self, post_id):
         post = self.db.get_post(post_id)
-        if post.channel_id in self.db.get_all_ch(self.user_id):
-            is_admin = True
-        else:
-            is_admin = False
 
+        is_admin = post.channel_id in self.db.get_all_ch(self.user_id) 
 
-        for com in post.comments:
+        for comment in post.comments:
             time.sleep(0.5)
-            name_user = self.bot.get_chat(com.user_creator).first_name
-            bts = [[Button('❤️' + str(com.liked_count) ,callback_data="comment like " + str(com.id))]]
-
-            if is_admin: bts[0].append(Button('🗑', callback_data='open confirm_del ' + str(com.id)))
-
-            text = f'**{name_user}:**❤️ {com.liked_count} **|** 🕑 {com.date_add}\n__{com.text}__'
-            print(bts)
-            self.bot.send_message(self.user_id, text, reply_markup = Markup(bts) )
+            
+            text, bts = self.build_comment(comment, is_admin)
+            
+            self.bot.send_message(self.user_id, text, reply_markup = Markup(bts), parse_mode = 'html')
 
         self.bot.send_message(self.user_id, 'Write your comments: ')
         self.db.set_user_param(self.user_id, 'mode_write', 'write_comment '+ str(post.id))
             
-
         return False, None
 
-    @swnd_msg
-    def confirm_del(self, arg_id):
+    @send_msg
+    def comment(self, arg_id):
         comment = self.db.get_comment(arg_id)
+        is_admin = comment.channel_id in self.db.get_all_ch(self.user_id) 
+        
+        return self.build_comment(comment, is_admin)
 
-        bts = [[Button('Yes', callback_data = "commit delete " + arg_id),
-                Button('No', callback_data  = "delete_this_msg" )]]#TODO: <<<<< EDIT IT
 
-        name_user = self.bot.get_chat(com.user_creator).first_name
-        return f'You realy delete:\n**{name_user}**\n__{comment.text}__', bts
+
+
+
+    @send_msg
+    def confirm_del(self, arg_id):
+        bts = [[Button('Yes', callback_data = "comment delete " + arg_id),
+                Button('No', callback_data  = "open comment " + arg_id )]]
+        return f'Delete this comment?', bts
 
 
     @send_msg
@@ -123,15 +180,7 @@ class View(object):
         return result, None
 
         
-    @send_msg
-    def ch_setting(self, arg_id):
-
-        channel = self.db.get_ch_setting(int(ch_id))
-        print(channel)
-
-        #TODO:
-        
-        return 'Setting'
+    
         
 
     @send_msg

@@ -15,8 +15,8 @@ class PrivateHandler(object):
 
             self.view.add_ch_final(msg, edit_msg = True, result = result)
             
-        elif user.mode_write.split()[0] == 'mode_write':
-
+        elif user.mode_write.split()[0] == 'write_comment':
+            
             self.post_editor.new_comment(bot, msg.chat.id, user.mode_write.split()[1], msg.text)
 
         else:

@@ -1,6 +1,6 @@
 import psycopg2
 import psycopg2.extras
-from type_s import User, ChSetting, Post, Comments
+from type_s import User, ChSetting, Post, Comment
 
 try:
     import local_config as config
@@ -74,44 +74,61 @@ class DB(object):
         with self.conn:
             with self.conn.cursor() as cur:
                 cur.execute("""insert into posts (msg_id, channel_id) VALUES (%s, %s) RETURNING id;""",(msg_id, chennel_id,))
-                id = cur.fetchone()
+                id = cur.fetchone()[0]
             
         return id
 
-    def get_post(self, post_id):
+    def get_post(self, post_id = None, comment_id = None):
         with self.conn:
             with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
+
+                if comment_id:
+                    cur.execute("select post_id from coments where id = %s",(comment_id,))
+                    post_id = cur.fetchone[0]
+
                 cur.execute("""select * from posts where id = %s;""",(post_id,))
                 post = cur.fetchone()
                 cur.execute("""select * from coments where post_id = %s;""",(post_id,))
+
                 comments = cur.fetchall()
         return Post(post, comments)
 
-    def new_comment(self, user_creator_id, post_id, text):
+    def new_comment(self, user_creator_id, post, text):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""insert into coments (text_main, post_id, user_creator_id) values (%s, %s, %s);""",
-                            (text, post_id, user_creator_id,))
+                cur.execute("""insert into coments (text_main, post_id, user_creator_id, channel_id) values (%s, %s, %s, %s);
+                               update posts set all_comments = all_comments + 1 where id = %s;""",
+                            (text, post.id, user_creator_id, post.channel_id, post.id,))
 
 
-    def like_comment(self, comment_id):
+    def like_comment(self, comment_id, user_liked):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""update coments set liked_count = liked_count + 1 where id = %s;""", (comment_id,))
+                cur.execute("""UPDATE coments SET 
+                            liked_count = liked_count + 1,
+                            users_liked = ARRAY_APPEND(users_liked, %s)
+                            WHERE id = %s;""", (user_liked, comment_id,))
 
-    def dislike_comment(self, comment_id):
+    def dislike_comment(self, comment_id, user_dislike):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""update coments set liked_count = liked_count - 1 where id = %s;""", (comment_id,))
+                cur.execute("""update coments set
+                            liked_count = liked_count - 1,
+                            users_liked = ARRAY_REMOVE(users_liked, %s) 
+                            WHERE id = %s;""", (user_dislike, comment_id,))
 
     def delete_comment(self, comment_id):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""delete from comments where id = %s""", (comment_id,))
+                cur.execute("""update posts set all_comments = all_comments - 1
+                               where id = (select post_id from coments where id = %s);
+
+                            delete from coments where id = %s;
+                            """, (comment_id,comment_id,))
     
     def get_comment(self, comment_id):
-         with self.conn:
+        with self.conn:
             with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
-                cur.execute("""select * from comments where id = %s""", (comment_id,))
+                cur.execute("""select * from coments where id = %s""", (comment_id,))
                 comment = cur.fetchone()
-        return Comments(comment)
+        return Comment(comment)

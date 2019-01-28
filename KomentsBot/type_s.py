@@ -2,7 +2,15 @@ class ChSetting(object):
     def __init__(self, data):
         self.id = data['id']
         self.user_id = data['user_id']
+
+
+        #TODO add on db
         self.status  = 'on'
+        self.show_comnts_post = 2 # 0 - 3~ int
+        self.max_len_comnt = 20 # 10 - 50~ int
+        self.sort_comnts_pots = 'new' # new hot~ str
+        self.can_write_comnt = 'all' # all only_fellowers str
+        
 
 
 class User(object):
@@ -16,12 +24,17 @@ class Comment(object):
         self.post_id     = comment['post_id']
         self.channel_id  = comment['channel_id'] #TODO: Add to DB
         self.text        = comment['text_main']
-        self.date_add    = comment['date_add']
+        self.date_add    = comment['date_add'].strftime('%H:%M') 
         self.user_creator= comment['user_creator_id']
         self.liked_count = comment['liked_count']
+        self.users_liked = comment['users_liked']
 
     def __repr__(self):
         return self.text
+
+    def get_user_name(self, bot):
+        return bot.get_chat(self.user_creator).first_name
+        
 
 class Post(object):
     def __init__(self, data, comments):

@@ -11,7 +11,7 @@ from callback import CallbackHandler
 from post_editor import PostEditor
 
 logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    format='%(levelname)s - %(message)s')
 
 updater = Updater(config.TOKEN)
 
@@ -21,7 +21,7 @@ db = DB()
 view = View(updater.bot, db )
 post_editor = PostEditor(db)
 PH = PrivateHandler(view, db, updater.bot, post_editor)
-CBH = CallbackHandler(view , db)
+CBH = CallbackHandler(view , db, post_editor)
 
 dispatcher.add_handler(MessageHandler(Filters.text, PH.main, channel_post_updates = False))
 dispatcher.add_handler(CommandHandler('start', PH.command))
