@@ -47,13 +47,15 @@ class DB(object):
     def add_channel(self, user_id, ch_id):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""insert into chsetting (id, user_id) VALUES (%s, %s)""",(ch_id, user_id,))
+                cur.execute("""insert into chsetting (id, user_id)
+                 VALUES (%s, %s)""",(ch_id, user_id,))
             
 
     def get_all_ch(self, user_id):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""SELECT id FROM chsetting WHERE user_id = %s""",(user_id,))
+                cur.execute("""SELECT id FROM chsetting
+                 WHERE user_id = %s""",(user_id,))
                 channels = cur.fetchall()
                 print(channels, type(channels))
 
@@ -63,7 +65,8 @@ class DB(object):
         with self.conn:
             with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
             
-                cur.execute("""SELECT * FROM chsetting WHERE id = %s""",(ch_id,))
+                cur.execute("""SELECT * FROM chsetting
+                                WHERE id = %s""",(ch_id,))
                 channel = cur.fetchone()
         print(channel)
         return ChSetting(dict(channel))
@@ -73,23 +76,41 @@ class DB(object):
     def new_post(self, chennel_id,  msg_id):
         with self.conn:
             with self.conn.cursor() as cur:
-                cur.execute("""insert into posts (msg_id, channel_id) VALUES (%s, %s) RETURNING id;""",(msg_id, chennel_id,))
+                cur.execute("""insert into posts (msg_id, channel_id)
+                 VALUES (%s, %s) RETURNING id;""",(msg_id, chennel_id,))
                 id = cur.fetchone()[0]
             
         return id
 
-    def get_post(self, post_id = None, comment_id = None):
+    def get_post(self, post_id = None, comment_id = None, sort_comnts = 'new',
+                 limit_comnts = 3):
         with self.conn:
             with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
 
-                if comment_id:
+                if post_id is None:
+                    print(comment_id)
                     cur.execute("select post_id from coments where id = %s",(comment_id,))
-                    post_id = cur.fetchone[0]
+                    post_id = cur.fetchone()['post_id']
 
                 cur.execute("""select * from posts where id = %s;""",(post_id,))
                 post = cur.fetchone()
-                cur.execute("""select * from coments where post_id = %s;""",(post_id,))
 
+                if sort_comnts == 'new':
+                    cur.execute("""
+                        select * from coments
+                        where post_id = %s
+                        order by date_add desc      
+                        limit %s;
+                    """,(post_id, limit_comnts))
+
+                elif sort_comnts == 'top':
+                    cur.execute("""
+                        select * from coments
+                        where post_id = %s
+                        order by liked_count desc
+                        limit %s;
+                    """,(post_id, limit_comnts))
+            
                 comments = cur.fetchall()
         return Post(post, comments)
 
@@ -117,18 +138,19 @@ class DB(object):
                             users_liked = ARRAY_REMOVE(users_liked, %s) 
                             WHERE id = %s;""", (user_dislike, comment_id,))
 
-    def delete_comment(self, comment_id):
+    def delete_comment(self, comment_id, post_id):
         with self.conn:
             with self.conn.cursor() as cur:
                 cur.execute("""update posts set all_comments = all_comments - 1
-                               where id = (select post_id from coments where id = %s);
-
+                               where id = %s;
                             delete from coments where id = %s;
-                            """, (comment_id,comment_id,))
+                            """, (post_id, comment_id,))
     
     def get_comment(self, comment_id):
         with self.conn:
             with self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cur:
-                cur.execute("""select * from coments where id = %s""", (comment_id,))
+                cur.execute("""
+                                select * from coments where id = %s
+                            """,(comment_id,))
                 comment = cur.fetchone()
         return Comment(comment)

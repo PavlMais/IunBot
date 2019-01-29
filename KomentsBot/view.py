@@ -10,7 +10,7 @@ class View(object):
 
     def send_msg(func):
         def wraper(self, msg, edit_msg = True, *args, **kwargs):
-            print(args)
+            print('ARGS: ', args)
             print(func.__name__, 'KWARGS docor: ',kwargs)
 
             user = self.db.check_user(msg.chat.id)
@@ -24,7 +24,7 @@ class View(object):
                 bts = None
             else:
                 bts = Markup(buttons)
-            print(bts)
+            
             if edit_msg:
                 try:
                     self.bot.edit_message_text(text, chat_id = msg.chat.id, message_id = msg.message_id,
@@ -37,60 +37,110 @@ class View(object):
         return wraper
 
     @send_msg
-    def ch_setting(self, arg_id):
-        channel = self.db.get_ch_setting(int(arg_id))
+    def ch_setting(self, ch_id):
+        channel = self.db.get_ch_setting(int(ch_id))
 
         bts = [
             [
                 Button('Назад', callback_data='open ch_list'),
-                Button('Статус', callback_data='l'),
+                Button('Статус: ' + channel.status, callback_data='l'),
             ],
             [
-                Button('Добивить коментариев к посту', callback_data='d')
+                Button('Отображать коментариев к посту: ' + str(channel.show_comnts_post), callback_data='open show_comnts_post')
             ],
             [
-                Button('Максимальная длина каментария', callback_data='d')
+                Button('Максимальная длина каментари: ' + str(channel.max_len_comnt), callback_data='d')
             ],
             [
-                Button('Сортировать коментарии', callback_data='d')
+                Button('Сортировать: ' + channel.sort_comnts_pots, callback_data='d')
             ],
-            
-            [
-                Button('Кто сожет писать комментарии', callback_data='d')
-            ],
-            [
-                Button('Настроить кнопки', callback_data='d')
-            ],
+            # [
+            #     Button('Настроить кнопки', callback_data='d')
+            # ],
             
         ]
         return 'Setting', bts
 
+    def bts_setting(self, ch_id):
+        #TODO
+        return 'text', None
+
+    def show_comnts_post(self, ch_id):
+        bts = [
+            [
+                Button('Назад', callback_data='open ch_setting ' + ch_id)
+            ],
+            [
+                Button('Не добавлять', callback_data='open ch_setting ' + ch_id)
+            ],
+            [
+                Button('1', callback_data='open ch_setting ' + ch_id)
+            ],
+            [
+                Button('2', callback_data='open ch_setting ' + ch_id)
+            ],
+            [
+                Button('3', callback_data='open ch_setting ' + ch_id)
+            ],
+        ]
+        return 'текст', bts
 
     def build_comment(self, comnt, is_admin):
         if comnt.user_creator == self.user_id:
             is_liked  = '♥️'
-            call_data = 'None'
+            call_data = 'show you_creator'
         elif comnt.users_liked and self.user_id in comnt.users_liked:
             is_liked  = '💖'
-            call_data = 'comment dislike ' + str(comnt.id)
+            call_data = 'comment dislike ?comment_id=' + str(comnt.id)
         else:
             is_liked  = '❤️'
-            call_data = 'comment like ' + str(comnt.id)
-
+            call_data = 'comment like ?comment_id=' + str(comnt.id)
+        print('CALLDATA BTN: ', call_data)
         bts = [Button(is_liked + str(comnt.liked_count), callback_data=call_data)]
         
         if comnt.user_creator == self.user_id:
-            bts.append(Button('🗑',   callback_data='open confirm_del '  + str(comnt.id)))
-            bts.append(Button('edit',callback_data='open edit_comment ' + str(comnt.id)))
+            bts.append(Button('🗑', 
+             callback_data='open confirm_del ?comment_id=' + str(comnt.id) + '&post_id=' + str(comnt.post_id)))
+            bts.append(Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
         elif is_admin:
-            bts.append(Button('🗑', callback_data='open confirm_del ' + str(comnt.id)))
+            bts.append(Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
 
-        text = f'<b>{comnt.get_user_name(self.bot)}</b>  🕑 {comnt.date_add}\n<i>{comnt.text}</i>'
+        text = f'<b>{comnt.get_user_name(self.bot)}</b>     {comnt.date_add}\n<i>{comnt.text}</i>'
         return text, [bts]
 
 
+    @send_msg
+    def first_menu_comments(self, post_id):
+        post = self.db.get_post(post_id, sort_comnts = 'top', limit_comnts = 5)
+        is_admin = post.channel_id in self.db.get_all_ch(self.user_id) 
 
+        
+        for comment in post.comments:
+            text, bts = self.build_comment(comment, is_admin)
+            self.bot.send_message(self.user_id, text, reply_markup = Markup(bts), parse_mode = 'html')
 
+        bts = [
+            [
+                Button('Еще лучих', callback_data='f'),
+                Button('Еще последних', callback_data='f'),
+                Button('Еще старих', callback_data='f')
+            ],
+            [ Button('Написать свой комментарий', callback_data='open write_comment ?post_id=' + str(post_id)), ]
+        ]
+
+        self.bot.send_message(self.user_id, 'Вот лучшие коментарии', reply_markup =  Markup(bts))
+        return False, None
+
+    @send_msg
+    def write_comment(self, post_id):
+        bts = [[Button('Отмена', callback_data = 'remove_yourself')]]
+        self.bot.send_message(
+            self.user_id,
+            'Отправь мне текст комментария:',
+            reply_markup = Markup(bts)
+             )
+
+        return False, None
 
     @send_msg
     def comments(self, post_id):
@@ -111,28 +161,27 @@ class View(object):
         return False, None
 
     @send_msg
-    def comment(self, arg_id):
-        comment = self.db.get_comment(arg_id)
+    def comment(self, comment_id):
+        comment = self.db.get_comment(comment_id)
         is_admin = comment.channel_id in self.db.get_all_ch(self.user_id) 
         
         return self.build_comment(comment, is_admin)
 
 
-
-
-
     @send_msg
-    def confirm_del(self, arg_id):
-        bts = [[Button('Yes', callback_data = "comment delete " + arg_id),
-                Button('No', callback_data  = "open comment " + arg_id )]]
+    def confirm_del(self, comment_id, post_id):
+        bts = [[Button('Yes',
+         callback_data = "comment delete ?comment_id=" + comment_id + '&post_id=' + str(post_id)),
+                Button('No', callback_data  = "open comment ?comment_id=" + comment_id )]]
         return f'Delete this comment?', bts
 
 
     @send_msg
-    def edit_comment(self, arg_id):
-        comment = self.db.get_comment(arg_id)
-        bts = [[Button('Cancel', callback_data = "delete_this_msg")]]
-        return 'ok send me new text for', btn
+    def edit_comment(self, comment_id):
+        comment = self.db.get_comment(comment_id)
+        btn = [[Button('Cancel', callback_data = "remove_yourself")]]
+        self.bot.send_message(self.user_id, 'ok send me new text for', reply_markup = btn)
+        return False, None
 
 
     @send_msg
@@ -157,7 +206,7 @@ class View(object):
                     ch_name = self.bot.get_chat(ch).title
                 except:
                     ch_name = 'No admin'
-                bts.append([Button(str(ch_name), callback_data='open ch_setting ' + str(ch)),])
+                bts.append([Button(str(ch_name), callback_data='open ch_setting ?ch_id=' + str(ch)),])
         else:
             bts.append([Button(' Добавить', callback_data='open add_ch')])
         return 'List channel: ', bts
@@ -178,10 +227,6 @@ class View(object):
         #TODO:
 
         return result, None
-
-        
-    
-        
 
     @send_msg
     def del_end_msg(self):

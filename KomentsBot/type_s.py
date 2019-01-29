@@ -12,7 +12,6 @@ class ChSetting(object):
         self.can_write_comnt = 'all' # all only_fellowers str
         
 
-
 class User(object):
     def __init__(self, data):
         self.id = data['id']
@@ -30,7 +29,7 @@ class Comment(object):
         self.users_liked = comment['users_liked']
 
     def __repr__(self):
-        return self.text
+        return f'<{self.text} {self.date_add} {self.liked_count}>'
 
     def get_user_name(self, bot):
         return bot.get_chat(self.user_creator).first_name

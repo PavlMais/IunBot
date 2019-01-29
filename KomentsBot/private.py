@@ -69,7 +69,7 @@ class PrivateHandler(object):
         msg_txt = msg.text.split()
 
         if len(msg_txt) == 2 and msg_txt[0] == '/start':
-            self.view.comments(msg, post_id = msg_txt[1])
+            self.view.first_menu_comments(msg, post_id = msg_txt[1])
         elif msg.text == '/start':
             self.view.welkom(msg, edit_msg=False)
 

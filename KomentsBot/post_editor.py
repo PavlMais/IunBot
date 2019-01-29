@@ -16,7 +16,7 @@ class PostEditor(object):
 
         text_post = add_entities(post.text, post.entities)
 
-        new_text = f'{text_post}\n<a href="Bot">&#65524;</a><b>Komments  0</b>\n'
+        new_text = f'{text_post}\n<a href="Bot">&#65524;</a><b>Комментарии  0</b>\n'
 
         r = bot.edit_message_text(
             text = new_text,
@@ -36,26 +36,21 @@ class PostEditor(object):
         bot.send_message(user_id, 'You comments sended!\nThank you!')
 
 
-
-
-
     def update_post(self, bot, post_id = None, comment_id = None):
-        post = self.db.get_post(post_id = post_id, comment_id = comment_id)
+        post = self.db.get_post(post_id = post_id, comment_id = comment_id, sort_comnts = 'new', limit_comnts= 3)
 
         msg = bot.forward_message(chat_id = '@gpalik', from_chat_id = post.channel_id, message_id = post.msg_id)
 
         text_post = msg.text.split('\ufff4')[0]
         text_post = add_entities(text_post, msg.entities)
         
-
         text = f'<a href="Bot">&#65524;</a><b>Коментарии  {post.all_comments}</b>'
 
 
         for comm in post.comments:
             time = comm.date_add
-            name = bot.get_chat(comm.user_creator).first_name
-            text += f'\n <b>{name}</b>️   ❤️ {comm.liked_count}   🕑 {time}\n      <i>{comm.text}</i>'
-
+            name = comm.get_user_name(bot)
+            text += f'\n <b>{name}</b>️   ❤️ {comm.liked_count}    {time}\n  <i>{comm.text}</i>'
 
         standart_bts = [[Button('Открить коментарии', url='t.me/KomentsBot?start=' + str(post.id)),]]
 
