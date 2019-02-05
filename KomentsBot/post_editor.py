@@ -97,20 +97,22 @@ class PostEditor(object):
         base = '<h4>{}</h4>{}<br><a href="http://t.me/KomentsBot?start=1{}">Like {} {}</a><br>'
 
 
-        write_com = '<a href="http://t.me/KomentsBot?start=0' + str(post.id) + '> Add comments</a> <br> '
-        body_new = f'Sort <b>New</b> <a href="https://telegra.ph/{post.telegraph_path_top}">Top</a><br>' 
+        write_com = '<br><a href="http://t.me/KomentsBot?start=0' + str(post.id) + '> Add comments</a> <br>'
+
+        body_new = f'Sort <b>New</b> <a href="https://telegra.ph/{post.telegraph_path_top}">Top</a><br>' + write_com
+        body_top = f'Sort <a href="https://telegra.ph/{post.telegraph_path_new}">New</a> <b>Top</b><br>' + write_com
 
 
         for com in comments_new:
             body_new += base.format(com.user_name, com.text, com.id, com.liked_count, com.date_add)
         
-        body_top = f'Sort <a href="https://telegra.ph/{post.telegraph_path_new}">New</a> <b>Top</b><br>'
+
         for com in comments_top:
             body_top += base.format(com.user_name, com.text, com.id, com.liked_count, com.date_add)
 
 
         title = 'Komments | '+ str(post.all_comments)
-        print(body_new)
+        
         self.tgph.edit_page(
             path = post.telegraph_path_new,
             title = title,
@@ -127,9 +129,8 @@ class PostEditor(object):
         print(post.telegraph_path_top, post.telegraph_path_new)
 
         for comm in comments_new[:-3]:
-            time = comm.date_add
-            
-            text += f'\n <b>{comm.user_name}</b>\n  <i>{comm.text}</i>\n ❤️ {comm.liked_count}  |  {time}'
+
+            text += f'\n <b>{comm.user_name}</b>\n  <i>{comm.text}</i>\n ❤️ {comm.liked_count}  |  {comm.date_add}'
 
         
         standart_bts = [[Button('Открить коментарии', url="https://telegra.ph/" + post.telegraph_path_top)]]

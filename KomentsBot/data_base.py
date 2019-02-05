@@ -126,7 +126,7 @@ class DB(object):
 
     @connect
     def like_comment(self, comment_id, user_liked):
-        cur.execute("""UPDATE coments SET 
+        self.cur.execute("""UPDATE coments SET 
                     liked_count = liked_count + 1,
                     users_liked = ARRAY_APPEND(users_liked, %s)
                     WHERE id = %s;""", (user_liked, comment_id,))
@@ -134,7 +134,7 @@ class DB(object):
     @connect
     def dislike_comment(self, comment_id, user_dislike):
         
-        cur.execute("""update coments set
+        self.cur.execute("""update coments set
                     liked_count = liked_count - 1,
                     users_liked = ARRAY_REMOVE(users_liked, %s) 
                     WHERE id = %s;""", (user_dislike, comment_id,))
@@ -142,7 +142,7 @@ class DB(object):
     @connect
     def delete_comment(self, comment_id, post_id):
         
-        cur.execute("""update posts set all_comments = all_comments - 1
+        self.cur.execute("""update posts set all_comments = all_comments - 1
                         where id = %s;
                     delete from coments where id = %s;
                     """, (post_id, comment_id,))
@@ -150,8 +150,8 @@ class DB(object):
     @connect
     def get_comment(self, comment_id):
         
-        cur.execute("""
+        self.cur.execute("""
                     select * from coments where id = %s
                     """,(comment_id,))
         
-        return Comment(cur.fetchone())
+        return Comment(self.cur.fetchone())

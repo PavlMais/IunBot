@@ -89,28 +89,28 @@ class View(object):
         ]
         return 'текст', bts
 
-    def build_comment(self, comnt, is_admin):
-        if comnt.user_creator == self.user_id:
-            is_liked  = '♥️'
-            call_data = 'show you_creator'
-        elif comnt.users_liked and self.user_id in comnt.users_liked:
-            is_liked  = '💖'
-            call_data = 'comment dislike ?comment_id=' + str(comnt.id)
-        else:
-            is_liked  = '❤️'
-            call_data = 'comment like ?comment_id=' + str(comnt.id)
-        print('CALLDATA BTN: ', call_data)
-        bts = [Button(is_liked + str(comnt.liked_count), callback_data=call_data)]
+    # def build_comment(self, comnt, is_admin):
+    #     if comnt.user_creator == self.user_id:
+    #         is_liked  = '♥️'
+    #         call_data = 'show you_creator'
+    #     elif comnt.users_liked and self.user_id in comnt.users_liked:
+    #         is_liked  = '💖'
+    #         call_data = 'comment dislike ?comment_id=' + str(comnt.id)
+    #     else:
+    #         is_liked  = '❤️'
+    #         call_data = 'comment like ?comment_id=' + str(comnt.id)
+    #     print('CALLDATA BTN: ', call_data)
+    #     bts = [Button(is_liked + str(comnt.liked_count), callback_data=call_data)]
         
-        if comnt.user_creator == self.user_id:
-            bts.append(Button('🗑', 
-             callback_data='open confirm_del ?comment_id=' + str(comnt.id) + '&post_id=' + str(comnt.post_id)))
-            bts.append(Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
-        elif is_admin:
-            bts.append(Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
+    #     if comnt.user_creator == self.user_id:
+    #         bts.append(Button('🗑', 
+    #          callback_data='open confirm_del ?comment_id=' + str(comnt.id) + '&post_id=' + str(comnt.post_id)))
+    #         bts.append(Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
+    #     elif is_admin:
+    #         bts.append(Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
 
-        text = f'<b>{comnt.get_user_name(self.bot)}</b>     {comnt.date_add}\n<i>{comnt.text}</i>'
-        return text, [bts]
+    #     text = f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text}</i>'
+    #     return text, [bts]
 
 
     # @send_msg
@@ -163,10 +163,70 @@ class View(object):
 
     @send_msg
     def comment(self, comment_id):
-        comment = self.db.get_comment(comment_id)
-        is_admin = comment.channel_id in self.db.get_all_ch(self.user_id) 
+        comnt = self.db.get_comment(comment_id)
+       
+
         
-        return self.build_comment(comment, is_admin)
+
+        bts = []
+        if self.user_id == comnt.user_creator: # btn for creator
+            bts.append([Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)),
+                        Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id))])
+            
+            return f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text}</i>', [bts]
+
+
+        
+        if self.user_id in comnt.users_liked:
+            is_liked  = '💖'
+            call_data = 'comment dislike ?comment_id=' + str(comnt.id)
+        else:
+            is_liked  = '❤️'
+            call_data = 'comment like ?comment_id=' + str(comnt.id)
+
+        if comnt.channel_id in self.db.get_all_ch(self.user_id): # btn for admin channel
+            bts.append(
+                [
+                    Button(is_liked, callback_data = call_data),
+                    Button('otvet',callback_data='open answer ?comment_id=' + str(comnt.id)),
+                    Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id))
+                ]
+            )
+        else: # for normal user
+            bts.append(
+                [
+                    Button(is_liked, callback_data = call_data),
+                    Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)),
+                    Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id))
+                ]
+            )
+
+
+
+
+
+
+
+
+        print('CALLDATA BTN: ', call_data)
+        bts = [Button(is_liked + str(comnt.liked_count), callback_data=call_data)]
+        
+        if comnt.user_creator == self.user_id:
+            bts.append(Button('🗑', 
+             callback_data='open confirm_del ?comment_id=' + str(comnt.id) + '&post_id=' + str(comnt.post_id)))
+            bts.append(Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
+        elif is_admin:
+            bts.append(Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
+
+
+
+        text = f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text}</i>'
+
+
+
+        return text, [bts]
+
+
 
 
     @send_msg
