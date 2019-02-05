@@ -73,9 +73,12 @@ class PrivateHandler(object):
 
         if len(msg_txt) == 2 and msg_txt[0] == '/start':
             print(msg_txt, code)
-            if code[0] == '0':
+            if code[0] == '0': # for new comments
                 print(111111111111)
                 self.view.write_comment(msg, post_id = code[1:])
+            elif code[0] == '1': # for open comment
+                print(222222222222)
+                self.view.comment(msg, comment_id = code[1:])
             
         elif msg.text == '/start':
             self.view.welkom(msg, edit_msg=False)
