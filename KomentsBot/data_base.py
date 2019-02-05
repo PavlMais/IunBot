@@ -87,7 +87,7 @@ class DB(object):
         if sort_comnts == 'new':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s
+                where post_id = %s and type_comment = "comment"
                 order by date_add desc      
                 limit %s offset %s;
             """,(post_id, limit_comnts, offset,))
@@ -95,28 +95,34 @@ class DB(object):
         elif sort_comnts == 'top':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s
+                where post_id = %s and type_comment = "comment"
                 order by liked_count desc
                 limit %s offset %s;
             """,(post_id, limit_comnts, offset,))
-        
-
-
 
         comments = self.cur.fetchall()
-        
-        
+        return list(map(lambda comment: Comment(comment), comments))
+    
+    @connect
+    def get_subcomments(self, root_comment_id):
+        self.cur.execute("""
+            select * from coments
+            where type_comment = "subcomment" and root_comment_id = %s;
+        """, (root_comment_id,))
+        comments = self.cur.fetchall()
 
         return list(map(lambda comment: Comment(comment), comments))
 
+   
 
     @connect
-    def new_comment(self, user_creator_id, post, text, user_name):
-        self.cur.execute(""" insert into coments (text_main, post_id, user_creator_id, channel_id, user_name)
-                        values (%s, %s, %s, %s, %s);
+    def new_comment(self, user_creator_id, post, text, user_name, type_comment = 'comment', root_comment_id = None):
+        self.cur.execute(""" insert into coments (text_main, post_id, user_creator_id,
+                             channel_id, user_name, type_comment, root_comment_id)
+                        values (%s, %s, %s, %s, %s, %s, %s);
 
                         update posts set all_comments = all_comments + 1 where id = %s;""",
-                    (text, post.id, user_creator_id, post.channel_id, user_name, post.id,))
+                    (text, post.id, user_creator_id, post.channel_id, user_name, type_comment, root_comment_id, post.id,))
 
     @connect
     def like_comment(self, comment_id, user_liked):
