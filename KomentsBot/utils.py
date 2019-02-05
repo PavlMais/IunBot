@@ -1,4 +1,6 @@
 def add_entities(text, entities):
+    if text is None:
+        return ''
     text = list(text)
     len_p = 0
 

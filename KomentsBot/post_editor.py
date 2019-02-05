@@ -1,45 +1,85 @@
 from telegram import InlineKeyboardButton as Button
 from telegram import InlineKeyboardMarkup as Markup
+from telegraph import Telegraph
+
+
 from utils import add_entities
+from config import TGPH_TOKEN
+
+
 class PostEditor(object):
 
     def __init__(self, db):
         self.db = db
+        self.tgph = Telegraph(TGPH_TOKEN)
+        
         
     def new_post(self,bot, msg):
         post = msg.channel_post
 
-        post_id = self.db.new_post(chennel_id = post.chat.id, msg_id = post.message_id)
-    
-        standart_bts = [[Button('Написать коментарий', url='t.me/KomentsBot?start=' + str(post_id)),]]
-        
+        page_top = self.tgph.create_page(title = 'Komments | 0', html_content = '-')
+        page_new = self.tgph.create_page(title = 'Komments | 0', html_content = '-')
 
-        text_post = add_entities(post.text, post.entities)
+        if post.photo:
+            type_msg = 'photo' 
+            text_msg = post.caption
+        else:
+            type_msg = 'text'
+            text_msg = post.text
 
-        new_text = f'{text_post}\n<a href="Bot">&#65524;</a><b>Комментарии  0</b>\n'
 
-        r = bot.edit_message_text(
-            text = new_text,
-            message_id = post.message_id,
-            chat_id = post.chat.id,
-            reply_markup = Markup(standart_bts),
-            parse_mode = 'html'
+        post_id = self.db.new_post(
+            chennel_id = post.chat.id,
+            msg_id = post.message_id,
+            telegraph_path_new = page_new['path'],
+            telegraph_path_top = page_top['path']
         )
-
-        print(r)
-
-    def new_comment(self, bot, user_id, post_id, text):
-        post = self.db.get_post(post_id)
-        self.db.new_comment(user_id, post, text)
-        self.update_post(bot, post.id)
+    
+        standart_bts = [[Button('Написать коментарий', url='t.me/KomentsBot?start=0' + str(post_id)),]]
         
+
+        text_post = add_entities(text_msg, post.entities)
+
+        page_url = page_top['url']
+        new_text = f'{text_post}\n<a href="">&#65524;</a><a href="{page_url}">Комментарии  0</a>\n'
+
+        self.edit_msg(bot, post.chat.id, post.message_id, new_text, standart_bts)
+
+
+    def edit_msg(self, bot, chat_id, msg_id, text, bts):
+        try:
+            bot.edit_message_caption(
+                chat_id = chat_id,
+                message_id = msg_id,
+                caption = text,
+                reply_markup = Markup(bts),
+                parse_mode = 'html'
+
+            )
+        except Exception as e:
+            print('Error edit msg in channel: ', e)
+            bot.edit_message_text(
+                chat_id = chat_id,
+                message_id = msg_id,
+                text = text,
+                reply_markup = Markup(bts),
+                parse_mode = 'html'
+            )
+
+    def new_comment(self, bot, user_id, post_id, text, user_name):
+        post = self.db.get_post(post_id)
+        self.db.new_comment(user_id, post, text, user_name)
+        self.update_post(bot, post.id)
         bot.send_message(user_id, 'You comments sended!\nThank you!')
 
 
-    def update_post(self, bot, post_id = None, comment_id = None):
-        post = self.db.get_post(post_id = post_id, comment_id = comment_id, sort_comnts = 'new', limit_comnts= 3)
 
+    def update_post(self, bot, post_id = None, comment_id = None):
+        post = self.db.get_post(post_id = post_id, comment_id = comment_id)
+        self.db.get_comments(post_id = post_id)
         msg = bot.forward_message(chat_id = '@gpalik', from_chat_id = post.channel_id, message_id = post.msg_id)
+
+        
 
         text_post = msg.text.split('\ufff4')[0]
         text_post = add_entities(text_post, msg.entities)
@@ -47,18 +87,52 @@ class PostEditor(object):
         text = f'<a href="Bot">&#65524;</a><b>Коментарии  {post.all_comments}</b>'
 
 
-        for comm in post.comments:
-            time = comm.date_add
-            name = comm.get_user_name(bot)
-            text += f'\n <b>{name}</b>️   ❤️ {comm.liked_count}    {time}\n  <i>{comm.text}</i>'
+        #============= EDIT PAGE IN TELEGRAPH =================
+        comments_new = self.db.get_comments(post_id = post.id, sort_comnts = 'new', limit_comnts = 25) 
+        comments_top = self.db.get_comments(post_id = post.id, sort_comnts = 'top', limit_comnts = 25) 
 
-        standart_bts = [[Button('Открить коментарии', url='t.me/KomentsBot?start=' + str(post.id)),]]
 
-        bot.edit_message_text(
-            text = text_post + text,         
-            message_id = post.msg_id,
-            chat_id = post.channel_id,
-            reply_markup = Markup(standart_bts),
-            parse_mode = 'html'
+
+
+        base = '<h4>{}</h4>{}<br><a href="http://t.me/KomentsBot?start=1{}">Like {} {}</a><br>'
+
+
+        write_com = '<a href="http://t.me/KomentsBot?start=0' + str(post.id) + '> Add comments</a> <br> '
+        body_new = f'Sort <b>New</b> <a href="https://telegra.ph/{post.telegraph_path_top}">Top</a><br>' 
+
+
+        for com in comments_new:
+            body_new += base.format(com.user_name, com.text, com.id, com.liked_count, com.date_add)
+        
+        body_top = f'Sort <a href="https://telegra.ph/{post.telegraph_path_new}">New</a> <b>Top</b><br>'
+        for com in comments_top:
+            body_top += base.format(com.user_name, com.text, com.id, com.liked_count, com.date_add)
+
+
+        title = 'Komments | '+ str(post.all_comments)
+        print(body_new)
+        self.tgph.edit_page(
+            path = post.telegraph_path_new,
+            title = title,
+            html_content = body_new
         )
+        self.tgph.edit_page(
+            path = post.telegraph_path_top,
+            title = title,
+            html_content = body_top
+        )
+        #=======================================================
+
+
+        print(post.telegraph_path_top, post.telegraph_path_new)
+
+        for comm in comments_new[:-3]:
+            time = comm.date_add
+            
+            text += f'\n <b>{comm.user_name}</b>\n  <i>{comm.text}</i>\n ❤️ {comm.liked_count}  |  {time}'
+
+        
+        standart_bts = [[Button('Открить коментарии', url="https://telegra.ph/" + post.telegraph_path_top)]]
+
+        self.edit_msg(bot, post.channel_id, post.msg_id, text_post + text , standart_bts)
         

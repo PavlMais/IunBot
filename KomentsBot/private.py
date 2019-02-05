@@ -1,4 +1,7 @@
 from telegram import error
+
+
+
 class PrivateHandler(object):
 
     def __init__(self, view, db, bot, post_editor):
@@ -9,7 +12,8 @@ class PrivateHandler(object):
 
     def main(self, bot, msg):
         msg = msg.message
-        user = self.db.check_user(msg.chat.id)
+        user = self.db.check_user(user_id = msg.chat.id)
+
         if user.mode_write == 'add_ch':
             result = self.check_ch(msg.chat.id, msg.text)
 
@@ -17,20 +21,20 @@ class PrivateHandler(object):
             
         elif user.mode_write.split()[0] == 'write_comment':
             
-            self.post_editor.new_comment(bot, msg.chat.id, user.mode_write.split()[1], msg.text)
+            self.post_editor.new_comment(bot, msg.chat.id, user.mode_write.split()[1], msg.text, msg.chat.first_name)
 
         else:
             self.view.main_menu(msg, edit_msg=False)
 
     def check_ch(self, user_id, ch_name):
-        print(ch_name)
+        
 
         if len(ch_name.split('t.me/')) > 1:
             ch_name = ch_name.split('t.me/')[1]
 
         if not ch_name[0] =='@':
             ch_name = '@' + ch_name
-        print(ch_name)
+        
         try:
             admins = self.bot.get_chat_administrators(ch_name)
         except error.BadRequest as e:
@@ -42,9 +46,6 @@ class PrivateHandler(object):
             if not e == 'Supergroup members are unavailable':
                 return 'NoAdmin'
 
-        print('ADMINS ===========================================')
-        print(admins)
-       
 
         for admin in admins:
             if admin.user.id == 739272731:
@@ -67,9 +68,15 @@ class PrivateHandler(object):
 
         print(msg.text)
         msg_txt = msg.text.split()
+        code = msg_txt[1]
+
 
         if len(msg_txt) == 2 and msg_txt[0] == '/start':
-            self.view.first_menu_comments(msg, post_id = msg_txt[1])
+            print(msg_txt, code)
+            if code[0] == '0':
+                print(111111111111)
+                self.view.write_comment(msg, post_id = code[1:])
+            
         elif msg.text == '/start':
             self.view.welkom(msg, edit_msg=False)
 

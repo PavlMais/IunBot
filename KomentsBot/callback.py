@@ -6,14 +6,15 @@ class CallbackHandler(object):
         self.db = db
         self.post_editor = post_editor
         self.methods = {
-            'main_menu' : view.main_menu,
-            'ch_list'   : view.ch_list,
-            'add_ch'    : view.add_ch,
-            'ch_setting': view.ch_setting,
-            'confirm_del':view.confirm_del,
-            'comment'   : view.comment,
+            'main_menu'  : view.main_menu,
+            'ch_list'    : view.ch_list,
+            'add_ch'     : view.add_ch,
+            'ch_setting' : view.ch_setting,
+            'confirm_del': view.confirm_del,
+            'comment'    : view.comment,
+            #'comments'   : view.comments,
             'show_comnts_post': view.show_comnts_post,
-            'write_comment' : view.write_comment,
+            'write_comment': view.write_comment,
             'edit_comment': view.edit_comment,
         }
 
@@ -31,8 +32,13 @@ class CallbackHandler(object):
         
        
         if data[0] == 'open':
+            
             self.methods[data[1]](msg, **kwargs)
-           
+
+        elif data[0] == 'reopen':
+            bot.delete_message(msg.chat.id, msg.message_id)
+            self.methods[data[1]](msg, **kwargs)
+
 
         elif data[0] == 'comment':
 

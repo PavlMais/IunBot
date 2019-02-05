@@ -21,7 +21,8 @@ class Comment(object):
     def __init__(self, comment):
         self.id          = comment['id']
         self.post_id     = comment['post_id']
-        self.channel_id  = comment['channel_id'] #TODO: Add to DB
+        self.user_name   = comment['user_name']
+        self.channel_id  = comment['channel_id']
         self.text        = comment['text_main']
         self.date_add    = comment['date_add'].strftime('%H:%M') 
         self.user_creator= comment['user_creator_id']
@@ -31,20 +32,17 @@ class Comment(object):
     def __repr__(self):
         return f'<{self.text} {self.date_add} {self.liked_count}>'
 
-    def get_user_name(self, bot):
-        return bot.get_chat(self.user_creator).first_name
-        
 
 class Post(object):
-    def __init__(self, data, comments):
+    def __init__(self, data):
         self.id        = data['id']
         self.msg_id    = data['msg_id']
         self.channel_id = data['channel_id']
         self.all_comments = data['all_comments']
-        self.comments = []
+        self.telegraph_path_new = data['telegraph_path_new']
+        self.telegraph_path_top = data['telegraph_path_top']
+        
 
-        for comment in comments:
-            self.comments.append(Comment(comment)) 
 
 
         def __repr__(self):
