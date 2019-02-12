@@ -1,3 +1,8 @@
+from utils import get_method_args
+from buffer import buffer
+from telegram import InlineKeyboardButton as Button
+from telegram import InlineKeyboardMarkup as Markup
+
 
 
 class CallbackHandler(object):
@@ -9,57 +14,92 @@ class CallbackHandler(object):
             'main_menu'  : view.main_menu,
             'ch_list'    : view.ch_list,
             'add_ch'     : view.add_ch,
+            'add_post'   : view.add_post,
             'ch_setting' : view.ch_setting,
             'confirm_del': view.confirm_del,
             'comment'    : view.comment,
-            #'comments'   : view.comments,
+            'bild_post'  : view.bild_post,
+            'config_btn' : view.config_btn,
+            'complete_post': view.complete_post,
+            'select_type_btn': view.select_type_btn,
+            'add_btn_name'   : view.add_btn_name,
+            'add_btn_url': view.add_btn_url,
             'show_comnts_post': view.show_comnts_post,
+            'write_subcomment': view.write_subcomment,
             'write_comment': view.write_comment,
             'edit_comment': view.edit_comment,
+            #'comments'   : view.comments,
         }
 
     def main(self, bot, update):
-        data = update.callback_query.data
         msg  = update.callback_query.message
-        print('DATA:  --> ', data)
-
-        if '?' in data:
-            args = data.split('?')[1]
-            kwargs = dict([n.split('=') for n in args.split('&')])
-        else:
-            kwargs = {}
-        data = data.split()
         
-       
-        if data[0] == 'open':
+        method, action, kwargs = get_method_args(update.callback_query.data)
+        
+        print('CALLBACK: ', method, action, kwargs)
+
+        if method == 'open':
+            self.methods[action](msg, **kwargs)
+
+        elif method == 'send':
+            if action == 'send_post':
+
+
+                post = buffer.get_bildpost(msg.chat.id)
+                
+                if 'ch_id' in kwargs:
+                    post.publish_in.append(kwargs['ch_id'])
+
+                for ch_id in post.publish_in:
+
+                    if post.type == 'text':
+                        bot.send_message(ch_id, post.text, reply_markup = Markup(post.buttons))
+                    elif post.type == 'photo':
+                        pass
+                
+                self.view.send_post_complete(msg)
+
+
+        elif method == 'ch_enable':
+
+            ch_ids = buffer.get_arg_post(msg.chat.id, 'publish_in')
+
+            if action == 'add':
+                ch_ids.append(kwargs['ch_id'])
+
+            elif action == 'del':
+                ch_ids.remove(kwargs['ch_id'])
+
+            buffer.set_arg_post(msg.chat.id, 'publish_in', ch_ids)
             
-            self.methods[data[1]](msg, **kwargs)
+            self.view.complete_post(msg)
 
-        elif data[0] == 'reopen':
+
+        elif method == 'reopen':
             bot.delete_message(msg.chat.id, msg.message_id)
-            self.methods[data[1]](msg, **kwargs)
+            self.methods[action](msg, **kwargs)
 
 
-        elif data[0] == 'comment':
+        elif method == 'comment':
 
-            if data[1] =='delete':
+            if action =='delete':
                 bot.delete_message(msg.chat.id, msg.message_id)
                 self.db.delete_comment(**kwargs)
                 self.post_editor.update_post(bot, **kwargs)  # not optimized 
                 return
 
-            elif data[1] == 'like':
-                self.db.like_comment(msg.chat.id, **kwargs)
+            elif action == 'like':
+                self.db.like_comment(user_id = msg.chat.id, **kwargs)
 
-            elif data[1] == 'dislike':
-                self.db.dislike_comment(msg.chat.id, **kwargs)
+            elif action == 'dislike':
+                self.db.dislike_comment(user_id = msg.chat.id, **kwargs)
 
             self.view.comment(msg, **kwargs)
             self.post_editor.update_post(bot, **kwargs)  # not optimized 
 
      
-        elif data[0] == 'remove_yourself':
+        elif method == 'remove_yourself':
             bot.delete_message(msg.chat.id, msg.message_id)
-        elif data[0] == 'show':
-            if data[1] == 'you_creator':
+        elif method == 'show':
+            if action == 'you_creator':
                 bot.answer_callback_query(update.callback_query.id, 'Ти не можешь лайкать свой коментарий')

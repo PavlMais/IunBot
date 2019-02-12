@@ -1,3 +1,4 @@
+import json
 class ChSetting(object):
     def __init__(self, data):
         self.id = data['id']
@@ -28,6 +29,7 @@ class Comment(object):
         self.user_creator= comment['user_creator_id']
         self.liked_count = comment['liked_count']
         self.users_liked = comment['users_liked']
+        self.count_subcomnt = comment['count_subcomments']
 
     def __repr__(self):
         return f'<{self.text} {self.date_add} {self.liked_count}>'
@@ -35,6 +37,38 @@ class Comment(object):
 
 class Post(object):
     def __init__(self, data):
+        
+        self.id        = data['id']
+        self.msg_id    = data['msg_id']
+        self.channel_id = data['channel_id']
+        self.all_comments = data['all_comments']
+        self.telegraph_path_new = data['telegraph_path_new']
+        self.telegraph_path_top = data['telegraph_path_top']
+        
+
+        def __repr__(self):
+            return str(self.id)
+
+
+
+class Post(object):
+    def __init__(self, user_id, type, text = None, photo = None, photo_url = None):
+        self.user_id = user_id
+        self.text = text
+        self.photo = photo
+        self.buttons = []
+        self.published = False
+        self.is_comments = False
+        self.type = type
+        self.photo_url = '&#8203;'
+        self.publish_in = []
+        self.date_publis = None
+        self.date_delete = None
+        
+
+
+    def on_db(self, data):
+        
         self.id        = data['id']
         self.msg_id    = data['msg_id']
         self.channel_id = data['channel_id']
@@ -47,6 +81,10 @@ class Post(object):
 
         def __repr__(self):
             return str(self.id)
+
+
+
+
 
 
         

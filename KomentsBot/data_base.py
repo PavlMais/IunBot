@@ -62,6 +62,28 @@ class DB(object):
                         WHERE id = %s""",(ch_id,))
         
         return ChSetting(dict(self.cur.fetchone()))
+    @connect
+    def get_arg_channel(self, ch_id, args):
+        self.cur.execute("select {} from chsetting where id = %s;".format(', '.join(args)), (ch_id,))
+        data = self.cur.fetchone()
+        return data[args[0]]
+
+    @connect
+    def set_btn_markup(self, ch_id, button_name, index, url = None):
+        self.cur.execute("select default_btn_markup from chsetting where id = %s",(ch_id,))
+        data = self.cur.fetchone()['default_btn_markup']
+        print('>>>>> ', data)
+
+        data[index[0]].insert(index[1], {'text':button_name, 'url': url})
+
+        self.cur.execute(
+            "updata chsetting set default_btn_markup = %s where id = %s;",
+            (data, ch_id,)
+        )
+        
+
+
+
 
 
     @connect
@@ -87,7 +109,7 @@ class DB(object):
         if sort_comnts == 'new':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s and type_comment = "comment"
+                where post_id = %s and type_comment = 'comment'
                 order by date_add desc      
                 limit %s offset %s;
             """,(post_id, limit_comnts, offset,))
@@ -95,7 +117,7 @@ class DB(object):
         elif sort_comnts == 'top':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s and type_comment = "comment"
+                where post_id = %s and type_comment = 'comment'
                 order by liked_count desc
                 limit %s offset %s;
             """,(post_id, limit_comnts, offset,))
@@ -107,37 +129,66 @@ class DB(object):
     def get_subcomments(self, root_comment_id):
         self.cur.execute("""
             select * from coments
-            where type_comment = "subcomment" and root_comment_id = %s;
+            where type_comment = 'subcomment' and root_comment_id = %s;
         """, (root_comment_id,))
         comments = self.cur.fetchall()
-
+        print(comments)
         return list(map(lambda comment: Comment(comment), comments))
 
    
 
     @connect
-    def new_comment(self, user_creator_id, post, text, user_name, type_comment = 'comment', root_comment_id = None):
-        self.cur.execute(""" insert into coments (text_main, post_id, user_creator_id,
-                             channel_id, user_name, type_comment, root_comment_id)
-                        values (%s, %s, %s, %s, %s, %s, %s);
+    def new_comment(self, user_id, text, user_name, post_id):
+        self.cur.execute("""
+            select channel_id from posts where id = %s;
+        """,(post_id,))
 
-                        update posts set all_comments = all_comments + 1 where id = %s;""",
-                    (text, post.id, user_creator_id, post.channel_id, user_name, type_comment, root_comment_id, post.id,))
+        channel_id = self.cur.fetchone()['channel_id']
+
+        self.cur.execute("""
+            insert into coments (text_main, post_id, user_creator_id, channel_id, user_name, type_comment)
+            values (%s, %s, %s, %s, %s, 'comment'   );
+
+            update posts set all_comments = all_comments + 1 where id = %s;""",
+            (text, post_id, user_id, channel_id, user_name, post_id,)
+        )
+        return post_id
+
 
     @connect
-    def like_comment(self, comment_id, user_liked):
+    def new_subcomment(self, user_id, text, user_name, root_comnt_id):
+        self.cur.execute("""
+            select post_id, channel_id from coments where id = %s;
+        """, (root_comnt_id,))
+
+        ids = self.cur.fetchone()
+        post_id = ids['post_id']
+        channel_id = ids['channel_id']
+
+        self.cur.execute("""
+            insert into coments (text_main, post_id, user_creator_id, channel_id, user_name, type_comment, root_comment_id)
+            values (%s, %s, %s, %s, %s, 'subcomment', %s);
+
+            update posts set all_comments = all_comments + 1 where id = %s;
+            update coments set count_subcomments = count_subcomments + 1 where id = %s;""",
+            (text, post_id, user_id, channel_id, user_name, root_comnt_id, post_id, root_comnt_id,)
+        )       
+        return post_id 
+
+    @connect
+    def like_comment(self, user_id, comment_id):
         self.cur.execute("""UPDATE coments SET 
                     liked_count = liked_count + 1,
                     users_liked = ARRAY_APPEND(users_liked, %s)
-                    WHERE id = %s;""", (user_liked, comment_id,))
+                    WHERE id = %s;""", (user_id, comment_id,))
 
     @connect
-    def dislike_comment(self, comment_id, user_dislike):
+    def dislike_comment(self, user_id, comment_id):
         
         self.cur.execute("""update coments set
                     liked_count = liked_count - 1,
                     users_liked = ARRAY_REMOVE(users_liked, %s) 
-                    WHERE id = %s;""", (user_dislike, comment_id,))
+                    WHERE id = %s;""", (user_id, comment_id,))
 
     @connect
     def delete_comment(self, comment_id, post_id):
