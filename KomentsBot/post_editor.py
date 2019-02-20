@@ -5,22 +5,20 @@ from telegraph import Telegraph
 
 
 from utils import add_entities
+from data_base import db
 
 
 class PostEditor(object):
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self):
         self.tgph = Telegraph(TGPH_TOKEN)
         
         
     def new_post(self,bot, msg):
         post = msg.channel_post
 
-        page_top = self.tgph.create_page(title = 'Komments | 0', html_content = '-')
-        page_new = self.tgph.create_page(title = 'Komments | 0', html_content = '-')
-
-        post_id = self.db.new_post(
+        
+        post_id = db.new_post(
             chennel_id = post.chat.id,
             msg_id = post.message_id,
             telegraph_path_new = page_new['path'],
@@ -69,9 +67,9 @@ class PostEditor(object):
 
     def new_comment(self, bot, user_id, text, user_name, post_id = None, comment_id = None):
         if comment_id:
-            post_id = self.db.new_subcomment(user_id, text, user_name, comment_id)
+            post_id = db.new_subcomment(user_id, text, user_name, comment_id)
         else:
-            post_id = self.db.new_comment(user_id, text, user_name, post_id)
+            post_id = db.new_comment(user_id, text, user_name, post_id)
 
         self.update_post(bot, post_id)
         bot.send_message(user_id, 'You comments sended!\nThank you!')   
@@ -80,12 +78,12 @@ class PostEditor(object):
 
 
     def update_post(self, bot, post_id = None, comment_id = None):
-        post = self.db.get_post(post_id = post_id, comment_id = comment_id)
+        post = db.get_post(post_id = post_id, comment_id = comment_id)
    
         #============= EDIT PAGE IN TELEGRAPH =================
         print('POST ID ', post_id)
-        comments_new = self.db.get_comments(post_id = post.id, sort_comnts = 'new', limit_comnts = 25) 
-        comments_top = self.db.get_comments(post_id = post.id, sort_comnts = 'top', limit_comnts = 25) 
+        comments_new = db.get_comments(post_id = post.id, sort_comnts = 'new', limit_comnts = 25) 
+        comments_top = db.get_comments(post_id = post.id, sort_comnts = 'top', limit_comnts = 25) 
 
 
         base = ' <a href="http://t.me/KomentsBot?start=0' + str(post.id) + '"> Add comments</a><br/>'
@@ -106,7 +104,7 @@ class PostEditor(object):
             body_new += b_com.format(com.user_name, com.text, com.id, com.count_subcomnt, com.liked_count, com.date_add)
             print(com.count_subcomnt)
             if com.count_subcomnt > 0:
-                subcomnts = self.db.get_subcomments(com.id)
+                subcomnts = db.get_subcomments(com.id)
                 print(subcomnts)
 
                 for subcomnt in subcomnts:
@@ -155,3 +153,4 @@ class PostEditor(object):
 
         self.edit_msg(bot, post.channel_id, post.msg_id, text_post + text , standart_bts)
         
+post_editor = PostEditor()

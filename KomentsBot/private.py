@@ -1,46 +1,170 @@
+import json
+from pprint import pprint
+
 from telegram import error
 from telegram import InlineKeyboardButton as Button
+from telegram import InlineKeyboardMarkup as Markup
 
-
+from tgphEditor import tgph_editor
 from type_s import Post
 from buffer import buffer
-from utils import get_method_args, upload_media_tgph
+from utils import get_method_args, upload_media_tgph, parse_buttons, check_markup_bts
+from data_base import db
+from view import view
 
 
 class PrivateHandler(object):
-    def __init__(self, view, db, bot, post_editor):
-        self.view = view
-        self.db   = db
-        self.bot  = bot
-        self.post_editor = post_editor
+    def __init__(self):
+        
         self.map = {
-            'add_channel': self.add_channel,
-            'add_post': self.add_post,
-            'add_addition':self.add_addition,
-            'select_type_btn':self.view.select_type_btn,
-            'create_button':self.create_button,
-            'add_btn_url': self.view.add_btn_url,
-            'add_btn_name': self.view.add_btn_name
+            'add_channel':     self.add_channel,
+            'add_post':        self.add_post,
+            'add_addition':    self.add_addition,
+            'select_type_btn': view.select_type_btn,
+            'create_button':   self.create_button,
+            'write_comment':   self.write_comment,
+            'add_btn_url':     view.add_btn_url,
+            'add_btn_name':    view.add_btn_name,
+            'sort_buttons': self.sort_buttons
         }
+    def sort_buttons(self, msg, ch_id):
+        buttons, comments_on = db.get_buttons_channel(ch_id)
+         
 
-    def create_button(self, msg, type_btn, url = None):
-        post = buffer.get_bildpost(msg.chat.id)
-        if type_btn == 'url':
-            post.buttons.append([Button(msg.text, url = url)])
-        elif type_btn == 'reaction':
-            post.buttons.append([Button(msg.text.format(count = 0), callback_data='pres btn')])
-        elif type_btn == 'komments':
-            post.buttons.append([Button(msg.text.format(count = 0), url = 'http://komments.com')])
+        bts = {}
+
+        for line in buttons:
+            for btn in line:
+                bts[btn['id']] = btn
 
 
-        buffer.add_bildpost(msg.chat.id, post)
-        self.view.bild_post(msg)
+        pprint(bts)
+
+        count_btn = len(bts)
+
+        num_markup = check_markup_bts(msg.text, count_btn)
+        print(num_markup)
+
+        sort_btn = []
+        for indx, line in enumerate(num_markup):
+            sort_btn.append([])
+            for num in line:
+                print(indx, num)
+                sort_btn[indx].append(bts[int(num) - 1])
+
+
+        pprint(sort_btn)
+
+        db.set_buttons_channel(ch_id, sort_btn, comments_on)
+        view.config_btn(msg, ch_id = ch_id)
+
+
+
+
+
+
+
+    def write_comment(self, msg, post_id):
+        post = db.get_post(post_id)
+
+        db.new_comment(
+            text = msg.text,
+            channel_id = post.channel_id,
+            user_id = msg.chat.id,
+            user_name = msg.chat.first_name,
+            post_id = post_id
+        )
+
+        tgph_editor.update_comments(post_id, db)
+
+        bts = parse_buttons(post.buttons)
+
+        
+        print('>>>> ', bts)
+        print('COUNT: ', post.all_comments)
+        
+
+        post_bts = []
+    
+        for inx, line in enumerate(json.loads(post.buttons)):
+            post_bts.append([])
+            
+            for btn in line:
+                if btn['type'] == 'url':  
+                    post_bts[inx].append(Button(btn['text'], url = btn['url']))
+
+                elif btn['type'] == 'reaction':
+                    btn_id = btn['id']
+                    post_bts[inx].append(Button(btn['text'].format(count = 0),
+                                    callback_data = f'upcount ?post_id={post_id}&btn_id={btn_id}'))
+
+                elif btn['type'] == 'comments':
+                    print('BUTTON >>> ', btn['text'])
+                    post_bts[inx].append(Button(btn['text'].format(count = post.all_comments), url = 'telegra.ph/' + post.telegraph_path_top))
+
+
+
+
+
+
+
+        
+        print(post.channel_id,post.msg_id)
+        print(post_bts)
+        self.bot.edit_message_reply_markup(
+            chat_id = int(post.channel_id),
+            message_id = int(post.msg_id),
+            reply_markup = Markup(post_bts)
+        )
+        view.comments_sended(msg)
+    
+
+    def create_button(self, msg, type_btn, url = None, ch_id = None):
+        print('CHANNEL ID: ', ch_id)
+        if ch_id:
+            buttons, comments_on = db.get_buttons_channel(ch_id = ch_id)
+        else:    
+            buttons = buffer.get_arg_post(msg.chat.id, 'buttons')
+        
+        pprint(buttons)
+        id = 0
+        for line in buttons:
+            print(line)
+            print(type(line))
+            id += len(line)
+
+
+
+        buttons.append([
+            {
+            'id': id,
+            'type': type_btn,
+            'text': msg.text,
+            'data': 'upcount btn ?btn_id=' + str(id),
+            'users_liked': [],
+            'url': url,
+            'count':0
+            }
+        ])
+        
+        if not comments_on:
+            comments_on = (type_btn == 'comments')
+
+        print("SET COMMENTS ON: ", comments_on)
+        if ch_id:
+            db.set_buttons_channel(ch_id, buttons, comments_on)
+            view.config_btn(msg, ch_id = ch_id)
+        else:
+            buffer.set_arg_post(msg.chat.id, 'buttons', buttons)
+
+            view.bild_post(msg)
 
     def main(self, bot, msg):
+        self.bot = bot
         msg = msg.message
         user_id = msg.chat.id
 
-        user = self.db.check_user(user_id = user_id)
+        user = db.check_user(user_id = user_id)
         method, action, args = get_method_args(user.mode_write)
         print('PRIVATE: ', method, action, args)
         
@@ -49,7 +173,7 @@ class PrivateHandler(object):
             self.map[action](msg = msg, **args)
 
         else:
-            self.view.main_menu(msg, edit_msg=False)
+            view.main_menu(msg, edit_msg=False)
 
 
     def add_channel(self, msg):
@@ -69,7 +193,7 @@ class PrivateHandler(object):
     
             ch_id  = self.bot.get_chat(ch_name).id
 
-            if ch_id in self.db.get_all_ch(msg.chat.id):
+            if ch_id in db.get_all_ch(msg.chat.id):
                 result = 'ChannelExists'
             else:
                 result = 'Added'
@@ -86,11 +210,11 @@ class PrivateHandler(object):
                 result = 'Added'
 
         if result == 'Added':
-            self.db.add_channel(msg.chat.id, ch_id)
+            db.add_channel(msg.chat.id, ch_id)
         else:
             ch_id = None
 
-        self.view.add_ch_final(msg, edit_msg = True, result = result, ch_id = ch_id)
+        view.add_ch_final(msg, edit_msg = True, result = result, ch_id = ch_id)
 
     def add_addition(self, msg):
 
@@ -105,7 +229,7 @@ class PrivateHandler(object):
             print('TODO 223')
 
         buffer.add_bildpost(msg.chat.id, post)
-        self.view.bild_post(msg)
+        view.bild_post(msg)
 
     def add_post(self, msg):
 
@@ -121,10 +245,11 @@ class PrivateHandler(object):
         type_post = 'text' if msg.text else 'photo'    
 
 
-        post = Post(msg.chat.id, text = msg.text, photo = photo, photo_url = photo_url, type = type_post)
+        post = Post(msg.chat.id, text = msg.text, photo = photo,
+                    photo_url = photo_url, type = type_post)
         buffer.add_bildpost(msg.chat.id, post)
 
-        self.view.bild_post(msg)
+        view.bild_post(msg)
 
     def command(self, bot, msg):
         msg = msg.message
@@ -135,18 +260,19 @@ class PrivateHandler(object):
             print(msg_txt, code)
             if code[0] == '0': # for new comments
                 print(111111111111)
-                self.view.write_comment(msg, post_id = code[1:])
+                view.write_comment(msg, post_id = code[1:])
             elif code[0] == '1': # for open comment
                 print(222222222222)
-                self.view.comment(msg, comment_id = code[1:])
+                view.comment(msg, comment_id = code[1:])
             
         elif msg.text == '/start':
            
 
-            if self.db.get_all_ch(msg.chat.id):
-                self.view.main_menu(msg, edit_msg=False)
+            if db.get_all_ch(msg.chat.id):
+                view.main_menu(msg, edit_msg=False)
             else:
-                self.view.welkom(msg, edit_msg=False)
+                view.welkom(msg, edit_msg=False)
 
 
 
+private_handler = PrivateHandler()

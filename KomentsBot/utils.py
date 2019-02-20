@@ -1,9 +1,49 @@
-from config import TGPH_TOKEN
-from telegraph import Telegraph
-# from telegram.ext.updater import Bot
 import requests 
+import json
+
+from telegram import InlineKeyboardButton as Button
+from telegraph import Telegraph
 
 
+from config import TGPH_TOKEN
+
+
+
+def check_markup_bts(text, all_buttons):
+    text = text.strip()
+    nums = list(map(int, text.replace('\n','')))
+    all_nums = list(range(1, all_buttons + 1))
+
+    
+    if not len(nums) == all_buttons:
+        return 'no all buttons or more' 
+    if not all_buttons == len(frozenset(nums).intersection(all_nums)):
+        return 'error pars'
+    bts = [[]]
+    last_char = ''
+    for char in text:
+        if char == last_char:
+            return '\\n'
+        else:
+            last_char = char
+
+    for item in text:
+        if item == '\n':
+            bts.append([])
+        else:
+            bts[len(bts)-1].append(item)
+    return bts
+
+
+
+
+def parse_buttons(buttons):
+    if type(buttons) == list:
+        return json.dumps(buttons)
+    else:
+        return json.loads(buttons)
+    
+   
 
 def upload_media_tgph(bot, file):
 
