@@ -1,5 +1,7 @@
 import json
 from pprint import pprint
+import time
+
 
 from telegram import error
 from telegram import InlineKeyboardButton as Button
@@ -8,7 +10,8 @@ from telegram import InlineKeyboardMarkup as Markup
 from tgphEditor import tgph_editor
 from type_s import Post
 from buffer import buffer
-from utils import get_method_args, upload_media_tgph, parse_buttons, check_markup_bts
+from utils import (get_method_args, upload_media_tgph,
+                   parse_buttons, check_markup_bts)
 from data_base import db
 from view import view
 
@@ -17,51 +20,58 @@ class PrivateHandler(object):
     def __init__(self):
         
         self.map = {
-            'add_channel':     self.add_channel,
-            'add_post':        self.add_post,
-            'add_addition':    self.add_addition,
+            'add_channel'    : self.add_channel,
+            'add_post'       : self.add_post,
+            'add_addition'   : self.add_addition,
             'select_type_btn': view.select_type_btn,
-            'create_button':   self.create_button,
-            'write_comment':   self.write_comment,
-            'add_btn_url':     view.add_btn_url,
-            'add_btn_name':    view.add_btn_name,
-            'sort_buttons': self.sort_buttons
+            'create_button'  : self.create_button,
+            'write_comment'  : self.write_comment,
+            'add_btn_url'    : view.add_btn_url,
+            'add_btn_name'   : view.add_btn_name,
+            'sort_buttons'   : self.sort_buttons,
+            'write_answer'   : self.write_answer
         }
+
+    def write_answer(self, msg, comment_id):
+        count_answers, post_id = db.new_answer(
+            user_id = msg.chat.id,
+            text = msg.text,
+            user_name = msg.chat.first_name,
+            root_comnt_id = comment_id
+        )
+
+        print(count_answers)
+
+        
+        tgph_editor.update_comments(post_id)
+        
+        if count_answers > 1:
+            tgph_editor.update_answers(comment_id)
+
+
+
     def sort_buttons(self, msg, ch_id):
-        buttons, comments_on = db.get_buttons_channel(ch_id)
+        bts, comments_on = db.get_buttons_channel(ch_id)
          
 
-        bts = {}
-
-        for line in buttons:
+        list_btn = {}
+        for line in bts.bts:
             for btn in line:
-                bts[btn['id']] = btn
+                list_btn[btn.id] = btn
 
-
-        pprint(bts)
-
-        count_btn = len(bts)
-
-        num_markup = check_markup_bts(msg.text, count_btn)
-        print(num_markup)
+        
+        num_markup = check_markup_bts(msg.text, len(list_btn))
+  
 
         sort_btn = []
         for indx, line in enumerate(num_markup):
             sort_btn.append([])
             for num in line:
-                print(indx, num)
-                sort_btn[indx].append(bts[int(num) - 1])
+                sort_btn[indx].append(list_btn[int(num) - 1])
 
-
-        pprint(sort_btn)
-
-        db.set_buttons_channel(ch_id, sort_btn, comments_on)
+        bts.bts = sort_btn
+        db.set_buttons_channel(ch_id, bts, comments_on)
         view.config_btn(msg, ch_id = ch_id)
-
-
-
-
-
 
 
     def write_comment(self, msg, post_id):
@@ -74,12 +84,12 @@ class PrivateHandler(object):
             user_name = msg.chat.first_name,
             post_id = post_id
         )
-
-        tgph_editor.update_comments(post_id, db)
+        
+        tgph_editor.update_comments(post_id)
 
         bts = parse_buttons(post.buttons)
 
-        
+                
         print('>>>> ', bts)
         print('COUNT: ', post.all_comments)
         
@@ -95,12 +105,17 @@ class PrivateHandler(object):
 
                 elif btn['type'] == 'reaction':
                     btn_id = btn['id']
-                    post_bts[inx].append(Button(btn['text'].format(count = 0),
-                                    callback_data = f'upcount ?post_id={post_id}&btn_id={btn_id}'))
+                    post_bts[inx].append(Button(
+                        btn['text'].format(count = btn['count']),
+                        callback_data = btn['data']
+                    ))
 
                 elif btn['type'] == 'comments':
                     print('BUTTON >>> ', btn['text'])
-                    post_bts[inx].append(Button(btn['text'].format(count = post.all_comments), url = 'telegra.ph/' + post.telegraph_path_top))
+                    post_bts[inx].append(Button(
+                        btn['text'].format(count = post.all_comments + 1),
+                        url = 'telegra.ph/' + post.telegraph_path_top
+                    ))
 
 
 
@@ -127,28 +142,16 @@ class PrivateHandler(object):
             buttons = buffer.get_arg_post(msg.chat.id, 'buttons')
         
         pprint(buttons)
-        id = 0
-        for line in buttons:
-            print(line)
-            print(type(line))
-            id += len(line)
-
-
-
-        buttons.append([
-            {
-            'id': id,
-            'type': type_btn,
-            'text': msg.text,
-            'data': 'upcount btn ?btn_id=' + str(id),
-            'users_liked': [],
-            'url': url,
-            'count':0
-            }
-        ])
         
-        if not comments_on:
-            comments_on = (type_btn == 'comments')
+        buttons.add(
+            text = msg.text,
+            type = type_btn,
+            url = url
+        )
+
+        comments_on = buttons.check_comments()
+        
+        print(buttons)
 
         print("SET COMMENTS ON: ", comments_on)
         if ch_id:

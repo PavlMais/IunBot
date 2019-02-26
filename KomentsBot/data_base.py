@@ -3,7 +3,7 @@ import psycopg2
 import psycopg2.extras
 
 
-from type_s import User, Post, Comment
+from type_s import User, Post, Comment, BTS
 import config
 
 
@@ -73,28 +73,24 @@ class DB(object):
 
     @connect
     def set_buttons_channel(self, ch_id, buttons, comments_on):
-        buttons = json.dumps(buttons)
+        
         self.cur.execute("""
             UPDATE chsetting 
             SET default_btn_markup = %s, comments_on = %s
             WHERE id = %s;
-        """,(buttons, comments_on, ch_id,))
+        """,(buttons.to_json(), comments_on, ch_id,))
 
     @connect
     def set_buttons_post(self, ch_id, msg_id, buttons):
         self.cur.execute("UPDATE posts SET buttons = %s  WHERE channel_id = %s AND msg_id = %s;",
-            (json.dumps(buttons), ch_id, msg_id))
+            (buttons.to_json(), ch_id, msg_id))
 
     @connect
     def get_buttons_channel(self, ch_id):
         self.cur.execute("SELECT default_btn_markup, comments_on FROM chsetting WHERE id = %s;",(ch_id,))
         data = self.cur.fetchone()
 
-        buttons = data.default_btn_markup
-
-        if not buttons or buttons is None:
-            return [], data.comments_on
-        return json.loads(buttons), data.comments_on
+        return BTS(data.default_btn_markup), data.comments_on
 
 
     @connect
@@ -128,7 +124,7 @@ class DB(object):
             self.cur.execute(
                 "SELECT buttons FROM posts WHERE channel_id = %s AND msg_id = %s;",
             (ch_id, msg_id,))
-        return json.loads(self.cur.fetchone().buttons)
+        return BTS(self.cur.fetchone().buttons)
     
     
     @connect
@@ -144,6 +140,11 @@ class DB(object):
             FROM posts
             WHERE id = %s;
         """,(post_id,))
+        return self.cur.fetchone()
+
+    @connect
+    def get_one_answer(self, comments_id):
+        self.cur.execute("SELECT * FROM answers WHERE root_comment_id = %s;", (comments_id,))
         return self.cur.fetchone()
 
     @connect
@@ -166,7 +167,7 @@ class DB(object):
         if sort_comnts == 'new':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s and type_comment = 'comment'
+                where post_id = %s 
                 order by date_add desc      
                 limit %s offset %s;
                 """,(post_id, limit_comnts, offset,)
@@ -175,57 +176,63 @@ class DB(object):
         elif sort_comnts == 'top':
             self.cur.execute("""
                 select * from coments
-                where post_id = %s and type_comment = 'comment'
+                where post_id = %s 
                 order by liked_count desc
                 limit %s offset %s;
             """,(post_id, limit_comnts, offset,))
 
-        comments = self.cur.fetchall()
-        return list(map(lambda comment: Comment(comment), comments))
+        return self.cur.fetchall()
+         
     
     @connect
-    def get_subcomments(self, root_comment_id):
+    def get_answers(self, root_comment_id):
         self.cur.execute("""
-            select * from coments
-            where type_comment = 'subcomment' and root_comment_id = %s;
+            SELECT * FROM answers
+            WHERE root_comment_id = %s;
         """, (root_comment_id,))
-        comments = self.cur.fetchall()
-        print(comments)
-        return list(map(lambda comment: Comment(comment), comments))
 
-   
-
+        return self.cur.fetchall()
+    
     @connect
     def new_comment(self, user_id, text, user_name, post_id, channel_id):
         self.cur.execute("""
-            insert into coments (text_main, post_id, user_creator_id, channel_id, user_name, type_comment)
-            values (%s, %s, %s, %s, %s, 'comment'   );
+            INSERT INTO coments (text_main, post_id, user_creator_id, channel_id, user_name)
+            VALUES (%s, %s, %s, %s, %s);
 
-            update posts set all_comments = all_comments + 1 where id = %s;""",
+            UPDATE posts SET all_comments = all_comments + 1 where id = %s;""",
             (text, post_id, user_id, channel_id, user_name, post_id,)
         )
-        
 
 
     @connect
-    def new_subcomment(self, user_id, text, user_name, root_comnt_id):
+    def set_comment(self, comment_id, set, value):
+        self.cur.execute("UPDATE coments SET {} = %s WHERE id = %s;".format(set), (value, comment_id,))
+
+        
+    @connect
+    def new_answer(self, user_id, text, user_name, root_comnt_id):
         self.cur.execute("""
             select post_id, channel_id from coments where id = %s;
         """, (root_comnt_id,))
 
         ids = self.cur.fetchone()
-        post_id = ids['post_id']
-        channel_id = ids['channel_id']
+        post_id = ids.post_id
+        channel_id = ids.channel_id
 
         self.cur.execute("""
-            insert into coments (text_main, post_id, user_creator_id, channel_id, user_name, type_comment, root_comment_id)
-            values (%s, %s, %s, %s, %s, 'subcomment', %s);
+
+            INSERT INTO answers (post_id, channel_id, user_name, text_main, user_creator, root_comment_id)
+            VALUES (%s, %s, %s, %s, %s, %s);
 
             update posts set all_comments = all_comments + 1 where id = %s;
-            update coments set count_subcomments = count_subcomments + 1 where id = %s;""",
-            (text, post_id, user_id, channel_id, user_name, root_comnt_id, post_id, root_comnt_id,)
-        )       
-        return post_id 
+            update coments set count_answers = count_answers + 1 where id = %s RETURNING count_answers;
+
+        """,(post_id, channel_id, user_name, text, user_id, root_comnt_id, post_id, root_comnt_id))
+
+
+        return self.cur.fetchone().count_answers, post_id
+
+
 
     @connect
     def like_comment(self, user_id, comment_id):
@@ -243,13 +250,29 @@ class DB(object):
                     WHERE id = %s;""", (user_id, comment_id,))
 
     @connect
-    def delete_comment(self, comment_id, post_id):
+    def delete_comment(self, comment_id):
         
-        self.cur.execute("""update posts set all_comments = all_comments - 1
-                        where id = %s;
-                    delete from coments where id = %s;
-                    """, (post_id, comment_id,))
-                    
+        self.cur.execute("""
+            SELECT post_id FROM coments WHERE id = %s;
+        """, (comment_id,))
+        post_id = self.cur.fetchone().post_id
+
+
+        self.cur.execute("""
+            UPDATE posts 
+            SET all_comments = all_comments - 1
+            WHERE id = %s;
+            
+            DELETE FROM coments WHERE id = %s;
+        """, (post_id, comment_id))
+
+        return post_id
+        
+
+
+
+
+
     @connect
     def get_comment(self, comment_id):
         
@@ -257,7 +280,8 @@ class DB(object):
                     select * from coments where id = %s
                     """,(comment_id,))
         
-        return Comment(self.cur.fetchone())
+        return self.cur.fetchone()
+    
 
 
 

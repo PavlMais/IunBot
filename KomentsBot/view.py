@@ -79,15 +79,14 @@ class View(object):
         return False, None
 
     @send_msg
-    def write_subcomment(self, comment_id):
-        db.set_user_param(self.user_id, 'mode_write', 'write_subcomment Noen'+ str(comment_id))
+    def write_answer(self, comment_id):
+        db.set_user_param(self.user_id, 'mode_write', 'open write_answer ?comment_id='+ str(comment_id))
         bts = [[Button('Отмена', callback_data = 'remove_yourself')]]
         bot.send_message(
             self.user_id,
-            'Отправь мне текст комментария:',
+            'Отправь мне текст ответа на етот коментарий:',
             reply_markup = Markup(bts)
-             )
-
+        )
         return False, None
 
     @send_msg
@@ -96,12 +95,14 @@ class View(object):
         
 
         bts = []
-        if self.user_id == comnt.user_creator: # btn for creator
-            bts.append( Button('edit',callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
-            bts.append( Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
+        if self.user_id == comnt.user_creator_id: # btn for creator
+            bts.append( Button(f'❤️ {comnt.liked_count}',   callback_data='THIS YOUR like'))
+            bts.append( Button('edit', callback_data='open edit_comment ?comment_id=' + str(comnt.id)))
+            bts.append( Button('🗑',    callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
+            bts.append( Button('Answer',callback_data='open write_answer ?comment_id=' + str(comnt.id)))
             
             
-            return f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text}</i>', [bts]
+            return f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text_main}</i>', [bts]
 
 
         # if not none
@@ -114,23 +115,23 @@ class View(object):
 
         if comnt.channel_id in db.get_all_ch(self.user_id): # btn for admin channel
             bts.append(Button(is_liked, callback_data = call_data))
-            bts.append(Button('comment',callback_data='open write_subcomment ?comment_id=' + str(comnt.id)))
+            bts.append(Button('Answer',callback_data='open write_answer ?comment_id=' + str(comnt.id)))
             bts.append(Button('🗑', callback_data='open confirm_del ?comment_id=' + str(comnt.id)))
             
         else: # for normal user
             
             bts.append(Button(is_liked, callback_data = call_data))
-            bts.append(Button('comment',callback_data='open write_subcomment ?comment_id=' + str(comnt.id)))
+            bts.append(Button('Answer',callback_data='open write_answer ?comment_id=' + str(comnt.id)))
             
 
 
-        text = f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text}</i>'
+        text = f'<b>{comnt.user_name}</b>     {comnt.date_add}\n<i>{comnt.text_main}</i>'
         return text, [bts]
 
 
     @send_msg
-    def confirm_del(self, comment_id, post_id):
-        data_yes = f'comment delete ?comment_id={comment_id}&post_id={str(post_id)}'
+    def confirm_del(self, comment_id):
+        data_yes = f'comment delete ?comment_id={comment_id}'
 
         bts = [[
             Button('Yes', callback_data = data_yes),
@@ -269,24 +270,13 @@ class View(object):
         bts = [[Button('Отмена', callback_data='remove_yourself None')]]
         return 'Пришли мне ссилку', bts
 
+
     @send_msg
     def config_btn(self, ch_id):
-        buttons, _ = db.get_buttons_channel(ch_id = ch_id)
+        buttons, comments_on = db.get_buttons_channel(ch_id = ch_id)
         db.set_user_param(self.user_id, 'mode_write', f'open sort_buttons ?ch_id={ch_id}')
 
-        bts = []
-        
-        for inx, line in enumerate(buttons):
-            bts.append([])
-            for btn in line:
-                print('BUTTONS TEXT: ', btn['text'])
-                btn_id = btn['id']
-                text = str(btn_id + 1) + ' / ' + btn['text']
-                bts[inx].append(Button(text, callback_data = f'open del_btn ?btn_id={btn_id}&ch_id={ch_id}'))
-            
-
-
-
+        bts = buttons.get_tg_bts(markup = False, config = True, ch_id = ch_id)
         
         bts.append(
             [Button('Назад', callback_data = f'open ch_setting ?ch_id={ch_id}'),
@@ -294,6 +284,8 @@ class View(object):
         ])
         print(bts)
         return 'Config buttons', bts
+
+
     @send_msg
     def del_btn(self, btn_id, ch_id):
         print(btn_id, ch_id)

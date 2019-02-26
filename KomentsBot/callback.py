@@ -27,7 +27,7 @@ class CallbackHandler(object):
             'complete_post': view.complete_post,
             'select_type_btn': view.select_type_btn,
             'add_btn_name'   : view.add_btn_name,
-            'write_subcomment': view.write_subcomment,
+            'write_answer': view.write_answer,
         }
 
     def main(self, bot, update):
@@ -37,10 +37,7 @@ class CallbackHandler(object):
         print(update.callback_query)
         
         method, action, kwargs = get_method_args(update.callback_query.data)
-        if method =='upcount':
-            from_user = update.callback_query.from_user.id
-
-            self.button_handler(bot, msg, from_user, **kwargs)
+     
         
         print('CALLBACK: ', method, action, kwargs)
 
@@ -68,7 +65,7 @@ class CallbackHandler(object):
 
             buffer.set_arg_post(msg.chat.id, 'publish_in', ch_ids)
             
-            self.view.complete_post(msg)
+            view.complete_post(msg)
 
 
         elif method == 'reopen':
@@ -79,9 +76,10 @@ class CallbackHandler(object):
         elif method == 'comment':
 
             if action =='delete':
+
                 bot.delete_message(msg.chat.id, msg.message_id)
-                db.delete_comment(**kwargs)
-                self.post_editor.update_post(bot, **kwargs)  # not optimized 
+                post_id = db.delete_comment(**kwargs)
+                tgph_editor.update_comments(post_id) 
                 return
 
             elif action == 'like':
@@ -90,8 +88,9 @@ class CallbackHandler(object):
             elif action == 'dislike':
                 db.dislike_comment(user_id = msg.chat.id, **kwargs)
 
-            self.view.comment(msg, **kwargs)
-            self.post_editor.update_post(bot, **kwargs)  # not optimized 
+            view.comment(msg, **kwargs)
+            tgph_editor.update_comments(post_id) 
+            
 
      
         elif method == 'remove_yourself':
@@ -212,7 +211,7 @@ class CallbackHandler(object):
             
         db.set_msg_id_post(post_id, msg_send.message_id)
 
-        self.view.send_post_complete(msg)
+        view.send_post_complete(msg)
 
 
 
